@@ -4,47 +4,66 @@
     <h1>Billing</h1>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:700px">
-    <div class="card" style="border:2px solid #e1e3e5">
-      <div style="font-size:18px;font-weight:700;margin-bottom:4px">Free</div>
-      <div style="font-size:28px;font-weight:800;margin-bottom:12px">£0<span style="font-size:14px;font-weight:400;color:#6d7175">/mo</span></div>
-      <ul style="list-style:none;line-height:2;color:#6d7175">
-        <li>✓ Last 50 orders</li>
-        <li>✓ Up to 3 cost rules</li>
-        <li>✓ Product cost health</li>
-        <li>✗ Product tag rules</li>
-        <li>✗ Email alerts</li>
-        <li>✗ Order auto-tagging</li>
-        <li>✗ Full order history</li>
+  <div id="billing-status" style="margin-bottom:16px"></div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:760px;align-items:start">
+    <div class="card" id="free-card" style="border:2px solid #e1e3e5;position:relative">
+      <div style="font-size:20px;font-weight:700;margin-bottom:4px;color:#202223">Free</div>
+      <div style="font-size:32px;font-weight:800;margin-bottom:4px;color:#202223">£0<span style="font-size:15px;font-weight:400;color:#6d7175">/month</span></div>
+      <div style="font-size:12px;color:#6d7175;margin-bottom:16px">No credit card required</div>
+      <ul style="list-style:none;font-size:13px;line-height:1">
+        <li style="padding:6px 0;border-bottom:1px solid #f1f2f3;color:#6d7175"><span style="color:#008060;margin-right:8px">✓</span>Last 50 orders</li>
+        <li style="padding:6px 0;border-bottom:1px solid #f1f2f3;color:#6d7175"><span style="color:#008060;margin-right:8px">✓</span>Up to 3 cost rules</li>
+        <li style="padding:6px 0;border-bottom:1px solid #f1f2f3;color:#6d7175"><span style="color:#008060;margin-right:8px">✓</span>Product cost health</li>
+        <li style="padding:6px 0;border-bottom:1px solid #f1f2f3;color:#c9cccf"><span style="margin-right:8px">✗</span>Product tag rules</li>
+        <li style="padding:6px 0;border-bottom:1px solid #f1f2f3;color:#c9cccf"><span style="margin-right:8px">✗</span>Email alerts</li>
+        <li style="padding:6px 0;border-bottom:1px solid #f1f2f3;color:#c9cccf"><span style="margin-right:8px">✗</span>Order auto-tagging</li>
+        <li style="padding:6px 0;color:#c9cccf"><span style="margin-right:8px">✗</span>Full order history</li>
       </ul>
-      <div style="margin-top:16px">
-        <span class="badge badge-grey" style="padding:8px 16px">Current plan</span>
+      <div style="margin-top:20px" id="free-action">
+        <span style="display:inline-block;background:#f1f2f3;color:#6d7175;font-size:12px;font-weight:600;padding:6px 14px;border-radius:6px">Current plan</span>
       </div>
     </div>
 
-    <div class="card" style="border:2px solid #6d3fc7">
-      <div style="font-size:18px;font-weight:700;margin-bottom:4px">Pro <span class="badge badge-pro">Pro</span></div>
-      <div style="font-size:28px;font-weight:800;margin-bottom:12px">£29<span style="font-size:14px;font-weight:400;color:#6d7175">/mo</span></div>
-      <ul style="list-style:none;line-height:2">
-        <li>✓ All Free features</li>
-        <li>✓ Full order history</li>
-        <li>✓ Unlimited cost rules</li>
-        <li>✓ Product tag cost rules</li>
-        <li>✓ Email alerts</li>
-        <li>✓ Auto-tag low-margin orders</li>
-        <li>✓ Priority support</li>
+    <div class="card" id="pro-card" style="border:2px solid #008060;position:relative;box-shadow:0 6px 20px rgba(0,128,96,0.15);padding-top:28px">
+      <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:#008060;color:#fff;font-size:11px;font-weight:700;padding:3px 14px;border-radius:20px;white-space:nowrap;text-transform:uppercase;letter-spacing:0.07em">Recommended</div>
+      <div style="font-size:20px;font-weight:700;margin-bottom:4px;color:#202223">Pro</div>
+      <div style="font-size:32px;font-weight:800;margin-bottom:4px;color:#202223">£29<span style="font-size:15px;font-weight:400;color:#6d7175">/month</span></div>
+      <div style="font-size:12px;color:#6d7175;margin-bottom:16px">Billed monthly, cancel anytime</div>
+      <ul style="list-style:none;font-size:13px;line-height:1">
+        <li style="padding:6px 0;border-bottom:1px solid #f1f2f3;color:#202223"><span style="color:#008060;font-weight:700;margin-right:8px">✓</span>All Free features</li>
+        <li style="padding:6px 0;border-bottom:1px solid #f1f2f3;color:#202223"><span style="color:#008060;font-weight:700;margin-right:8px">✓</span>Full order history</li>
+        <li style="padding:6px 0;border-bottom:1px solid #f1f2f3;color:#202223"><span style="color:#008060;font-weight:700;margin-right:8px">✓</span>Unlimited cost rules</li>
+        <li style="padding:6px 0;border-bottom:1px solid #f1f2f3;color:#202223"><span style="color:#008060;font-weight:700;margin-right:8px">✓</span>Product tag cost rules</li>
+        <li style="padding:6px 0;border-bottom:1px solid #f1f2f3;color:#202223"><span style="color:#008060;font-weight:700;margin-right:8px">✓</span>Email alerts</li>
+        <li style="padding:6px 0;border-bottom:1px solid #f1f2f3;color:#202223"><span style="color:#008060;font-weight:700;margin-right:8px">✓</span>Auto-tag low-margin orders</li>
+        <li style="padding:6px 0;color:#202223"><span style="color:#008060;font-weight:700;margin-right:8px">✓</span>Priority support</li>
       </ul>
-      <div style="margin-top:16px">
-        <button class="btn btn-primary" id="upgrade-btn" style="background:#6d3fc7;border-color:#6d3fc7">Upgrade to Pro</button>
+      <div style="margin-top:20px" id="pro-action">
+        <button class="btn btn-primary" id="upgrade-btn" style="width:100%;justify-content:center;font-size:14px;height:40px">Upgrade to Pro →</button>
       </div>
     </div>
   </div>
-
-  <div id="billing-status" style="margin-top:16px"></div>
 </div>
 
 <script>
-  document.getElementById('upgrade-btn').addEventListener('click', async () => {
+  async function loadBillingStatus() {
+    try {
+      const token = await getSessionToken();
+      var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
+      const res = await fetch('/api/billing/status?shop=' + shop, { headers: { 'Authorization': 'Bearer ' + token } });
+      const data = await res.json();
+      if (data.plan === 'Pro') {
+        document.getElementById('free-action').innerHTML = '';
+        document.getElementById('pro-action').innerHTML = '<span style="display:inline-block;background:#008060;color:#fff;font-size:12px;font-weight:600;padding:6px 14px;border-radius:6px">Current plan ✓</span>';
+        document.getElementById('free-card').style.borderColor = '#e1e3e5';
+        document.getElementById('pro-card').style.borderColor = '#008060';
+        document.getElementById('billing-status').innerHTML = '<div class="alert-bar success">✓ You are on the <strong>Pro plan</strong>. Thank you for supporting MarginGuard!</div>';
+      }
+    } catch(e) {}
+  }
+
+  document.getElementById('upgrade-btn') && document.getElementById('upgrade-btn').addEventListener('click', async () => {
     const status = document.getElementById('billing-status');
     status.innerHTML = '<div class="alert-bar">Redirecting to Shopify billing...</div>';
     try {
@@ -63,5 +82,11 @@
       status.innerHTML = '<div class="alert-bar danger">Failed to start subscription. Please try again.</div>';
     }
   });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadBillingStatus);
+  } else {
+    loadBillingStatus();
+  }
 </script>
 ` }) %>

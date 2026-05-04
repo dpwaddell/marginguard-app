@@ -18,7 +18,8 @@ function isValidShop(shop) {
 // Entry point — redirect to Shopify OAuth
 router.get('/', (req, res) => {
   const shop = req.query.shop;
-  if (!shop || !isValidShop(shop)) return res.status(400).send('Invalid shop parameter.');
+  if (!shop) return res.redirect('https://admin.shopify.com');
+  if (!isValidShop(shop)) return res.status(400).send('Invalid shop parameter.');
 
   const nonce = generateNonce();
   nonces.set(nonce, { shop, ts: Date.now() });

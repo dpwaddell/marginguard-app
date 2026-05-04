@@ -87,7 +87,7 @@
   async function fetchRules() {
     try {
       const token = await getSessionToken();
-      const shop = window.__MARGINGUARD__.shop;
+      var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
       const res = await fetch('/api/cost-rules?shop=' + shop, { headers: { 'Authorization': 'Bearer ' + token } });
       const data = await res.json();
       rules = data.rules || [];
@@ -146,7 +146,7 @@
     if (!confirm('Delete this cost rule?')) return;
     try {
       const token = await getSessionToken();
-      const shop = window.__MARGINGUARD__.shop;
+      var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
       const res = await fetch('/api/cost-rules/' + id + '?shop=' + shop, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
       const data = await res.json();
       if (data.error) { alert(data.error); return; }
@@ -173,7 +173,7 @@
 
     try {
       const token = await getSessionToken();
-      const shop = window.__MARGINGUARD__.shop;
+      var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
       const url = (id ? '/api/cost-rules/' + id : '/api/cost-rules') + '?shop=' + shop;
       const method = id ? 'PUT' : 'POST';
       const res = await fetch(url, {

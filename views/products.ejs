@@ -8,6 +8,7 @@
   </div>
 
   <div id="sync-notice"></div>
+  <div id="products-summary" style="margin-bottom:10px;font-size:13px;font-weight:500"></div>
 
   <div class="card" style="padding:0; overflow:hidden">
     <table>
@@ -21,7 +22,7 @@
           <th class="text-right">Effective COGS</th>
           <th>Source</th>
           <th>Status</th>
-          <th>Action</th>
+          <th style="width:80px">Action</th>
         </tr>
       </thead>
       <tbody id="products-tbody">
@@ -35,7 +36,7 @@
   async function fetchProducts() {
     try {
       const token = await getSessionToken();
-      const shop = window.__MARGINGUARD__.shop;
+      var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
       const res = await fetch('/api/products?shop=' + shop, { headers: { 'Authorization': 'Bearer ' + token } });
       const data = await res.json();
       renderProducts(data.products || []);
@@ -51,6 +52,14 @@
     if (!products.length) {
       tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><p>No product costs yet. Click "Sync from Shopify" to import.</p></div></td></tr>';
       return;
+    }
+
+    const missing = products.filter(p => p.missing_cost).length;
+    const summaryEl = document.getElementById('products-summary');
+    if (summaryEl) {
+      summaryEl.innerHTML = missing > 0
+        ? '<span style="color:#d72c0d">⚠ ' + missing + ' of ' + products.length + ' variants missing costs — <a href="/app/costs" style="color:#d72c0d">add cost rules</a> or enter manual overrides below.</span>'
+        : '<span style="color:#008060">✓ All ' + products.length + ' variants have cost data.</span>';
     }
 
     tbody.innerHTML = products.map(p => {
@@ -86,7 +95,7 @@
   async function saveCost(variantId, costStr) {
     try {
       const token = await getSessionToken();
-      const shop = window.__MARGINGUARD__.shop;
+      var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
       const res = await fetch('/api/products/' + variantId + '/cost-override?shop=' + shop, {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
@@ -116,7 +125,7 @@
     notice.innerHTML = '<div class="alert-bar">Syncing products from Shopify...</div>';
     try {
       const token = await getSessionToken();
-      const shop = window.__MARGINGUARD__.shop;
+      var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
       await fetch('/api/sync/products?shop=' + shop, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } });
       notice.innerHTML = '<div class="alert-bar">Sync started. Refresh in a moment to see updated data.</div>';
       setTimeout(() => { notice.innerHTML = ''; fetchProducts(); }, 4000);

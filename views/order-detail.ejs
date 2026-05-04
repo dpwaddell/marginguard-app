@@ -52,7 +52,7 @@
   async function fetchOrder() {
     try {
       const token = await getSessionToken();
-      const shop = window.__MARGINGUARD__.shop;
+      var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
       const res = await fetch('/api/orders/' + orderId + '?shop=' + shop, {
         headers: { 'Authorization': 'Bearer ' + token }
       });

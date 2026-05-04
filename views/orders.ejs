@@ -3,53 +3,79 @@
   <div class="page-header">
     <h1>Orders</h1>
     <div class="flex gap-2 items-center">
+      <select class="form-input" id="sort-select" style="width:auto">
+        <option value="margin_asc">Lowest margin first</option>
+        <option value="recent">Most recent</option>
+        <option value="profit_asc">Lowest profit first</option>
+        <option value="profit_desc">Highest profit first</option>
+        <option value="revenue_desc">Highest revenue first</option>
+        <option value="discount_desc">Highest discount first</option>
+      </select>
       <select class="form-input" id="range-select" style="width:auto">
         <option value="7d">Last 7 days</option>
         <option value="30d" selected>Last 30 days</option>
         <option value="90d">Last 90 days</option>
+        <option value="1d">Today</option>
       </select>
     </div>
   </div>
 
   <div id="plan-notice"></div>
 
+  <div id="period-stats" style="display:none;margin-bottom:14px">
+    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);gap:10px">
+      <div class="stat-card accent-blue"><div class="stat-label">Total Revenue</div><div class="stat-value" id="ps-revenue">—</div></div>
+      <div class="stat-card accent-green"><div class="stat-label">Net Profit</div><div class="stat-value" id="ps-profit">—</div></div>
+      <div class="stat-card accent-green"><div class="stat-label">Avg Margin</div><div class="stat-value" id="ps-margin">—</div></div>
+    </div>
+  </div>
+
+  <div id="summary-bar" style="margin-bottom:10px;font-size:13px;color:#6d7175"></div>
+
   <div class="card" style="padding:0; overflow:hidden">
     <table>
       <thead>
         <tr>
-          <th>Order</th>
-          <th>Date</th>
-          <th class="text-right">Revenue</th>
+          <th style="min-width:130px">Order</th>
+          <th style="min-width:90px">Date</th>
+          <th class="text-right" style="min-width:90px">Revenue</th>
           <th class="text-right">Discounts</th>
-          <th class="text-right">Net Profit</th>
+          <th class="text-right" style="min-width:90px">Net Profit</th>
           <th class="text-right">Margin</th>
+          <th>Confidence</th>
           <th>Status</th>
         </tr>
       </thead>
       <tbody id="orders-tbody">
-        <tr><td colspan="7" class="loading">Loading...</td></tr>
+        <tr><td colspan="8" class="loading">Loading...</td></tr>
       </tbody>
     </table>
   </div>
 
-  <div id="pagination" style="margin-top:12px"></div>
+  <div class="pagination" id="pagination" style="margin-top:12px"></div>
+  <div style="margin-top:8px;font-size:12px;color:#6d7175" id="export-hint"></div>
 </div>
 
 <script>
   let currentRange = '30d';
   let currentPage = 1;
+  let currentSort = 'margin_asc';
+  let totalOrders = 0;
 
-  async function fetchOrders(range, page) {
+  async function fetchOrders(range, page, sort) {
+    document.getElementById('orders-tbody').innerHTML = '<tr><td colspan="8" class="loading">Loading...</td></tr>';
     try {
       const token = await getSessionToken();
-      const shop = window.__MARGINGUARD__.shop;
-      const res = await fetch('/api/orders?range=' + range + '&page=' + page + '&shop=' + shop, {
-        headers: { 'Authorization': 'Bearer ' + token }
-      });
+      var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
+      const res = await fetch(
+        '/api/orders?range=' + range + '&page=' + page + '&sort=' + sort + '&shop=' + shop,
+        { headers: { 'Authorization': 'Bearer ' + token } }
+      );
       const data = await res.json();
       renderOrders(data);
     } catch(e) {
-      document.getElementById('orders-tbody').innerHTML = '<tr><td colspan="7" style="color:#d72c0d;padding:20px">Failed to load orders.</td></tr>';
+      console.error('fetchOrders error:', e);
+      document.getElementById('orders-tbody').innerHTML = '<tr><td colspan="8" style="color:#d72c0d;padding:20px">Failed to load orders: ' + e.message + '</td></tr>';
     }
   }
 
@@ -58,35 +84,91 @@
 
   function renderOrders(data) {
     if (!data.is_pro) {
-      document.getElementById('plan-notice').innerHTML = '<div class="upgrade-banner"><strong>Free Plan:</strong> Showing last 50 orders. <a href="/app/billing">Upgrade to Pro</a> for full history.</div>';
+      document.getElementById('plan-notice').innerHTML =
+        '<div class="upgrade-banner" style="margin-bottom:12px"><strong>Free Plan:</strong> Showing up to 50 orders. <a href="/app/billing">Upgrade to Pro</a> for full history and CSV export.</div>';
     }
 
+    totalOrders = data.total || 0;
+    const limit = data.limit || 25;
+    const page = data.page || 1;
+    const totalPages = Math.ceil(totalOrders / limit);
+
+    // Period summary stat cards
+    const periodEl = document.getElementById('period-stats');
     const orders = data.orders || [];
+    if (orders.length) {
+      const totalRev = orders.reduce((s, o) => s + (parseFloat(o.gross_revenue) || 0), 0);
+      const totalProfit = orders.reduce((s, o) => s + (parseFloat(o.net_profit) || 0), 0);
+      const margins = orders.map(o => parseFloat(o.margin_percent)).filter(m => !isNaN(m));
+      const avgMargin = margins.length ? margins.reduce((s, m) => s + m, 0) / margins.length : null;
+      document.getElementById('ps-revenue').textContent = fmt(totalRev);
+      const profitEl = document.getElementById('ps-profit');
+      profitEl.textContent = fmt(totalProfit);
+      profitEl.className = 'stat-value ' + (totalProfit >= 0 ? 'positive' : 'negative');
+      document.getElementById('ps-margin').textContent = fmtPct(avgMargin);
+      periodEl.style.display = '';
+    } else {
+      periodEl.style.display = 'none';
+    }
+
+    const bar = document.getElementById('summary-bar');
+    bar.textContent = totalOrders + ' order' + (totalOrders !== 1 ? 's' : '') + ' found' +
+      (totalOrders > limit ? ' — page ' + page + ' of ' + totalPages : '');
+
+    if (!data.is_pro) {
+      document.getElementById('export-hint').textContent = 'Upgrade to Pro for CSV export.';
+    }
+
     const tbody = document.getElementById('orders-tbody');
     if (!orders.length) {
-      tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><p>No orders found for this period.</p></div></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><h3>No orders found</h3><p>Try a longer date range or check that order sync has run.</p></div></td></tr>';
+      renderPagination(0, limit, page);
       return;
     }
 
     tbody.innerHTML = orders.map(o => {
       const profit = parseFloat(o.net_profit);
       const margin = parseFloat(o.margin_percent);
-      const profitColor = profit < 0 ? '#d72c0d' : '#008060';
-      const marginColor = margin < 0 ? '#d72c0d' : margin < 15 ? '#b98900' : '#008060';
-      const confidence = o.confidence_status || 'complete';
-      return '<tr>' +
-        '<td><a href="/app/orders/' + o.order_id + '">' + (o.order_name || '#' + o.order_id) + '</a></td>' +
+      const profitClass = profit < 0 ? 'text-red' : 'text-green';
+      const marginClass = margin < 0 ? 'text-red' : margin < 15 ? 'text-amber' : 'text-green';
+      const conf = o.confidence_status || 'complete';
+      const confBadge = conf === 'complete' ? '' :
+        '<span class="badge badge-warning">' + confidenceLabel(conf) + '</span>';
+      return '<tr class="clickable" data-href="/app/orders/' + o.order_id + '">' +
+        '<td><strong>' + (o.order_name || '#' + o.order_id) + '</strong></td>' +
         '<td class="text-muted">' + (o.processed_at ? new Date(o.processed_at).toLocaleDateString('en-GB') : '—') + '</td>' +
         '<td class="text-right">' + fmt(o.gross_revenue) + '</td>' +
         '<td class="text-right text-muted">' + fmt(o.discount_total) + '</td>' +
-        '<td class="text-right" style="color:' + profitColor + '">' + fmt(o.net_profit) + '</td>' +
-        '<td class="text-right" style="color:' + marginColor + '">' + fmtPct(o.margin_percent) + '</td>' +
-        '<td>' +
-          (o.low_margin ? '<span class="badge badge-danger">Low margin</span> ' : '<span class="badge badge-success">OK</span> ') +
-          (confidence !== 'complete' ? '<span class="badge badge-warning">' + confidenceLabel(confidence) + '</span>' : '') +
-        '</td>' +
+        '<td class="text-right ' + profitClass + '"><strong>' + fmt(o.net_profit) + '</strong></td>' +
+        '<td class="text-right ' + marginClass + '"><strong>' + fmtPct(o.margin_percent) + '</strong></td>' +
+        '<td>' + confBadge + '</td>' +
+        '<td>' + (o.low_margin ? '<span class="badge badge-danger">Low margin</span>' : '<span class="badge badge-success">OK</span>') + '</td>' +
         '</tr>';
     }).join('');
+
+    renderPagination(totalOrders, limit, page);
+
+    // Clickable rows — delegate to the row's data-href
+    document.getElementById('orders-tbody').querySelectorAll('tr.clickable').forEach(function(row) {
+      row.addEventListener('click', function() {
+        var href = row.getAttribute('data-href');
+        if (href && window.__appNavigate) window.__appNavigate(href);
+      });
+    });
+  }
+
+  function renderPagination(total, limit, page) {
+    const totalPages = Math.ceil(total / limit);
+    const pag = document.getElementById('pagination');
+    if (totalPages <= 1) { pag.innerHTML = ''; return; }
+    pag.innerHTML =
+      '<button class="btn btn-secondary btn-sm" id="prev-btn"' + (page <= 1 ? ' disabled' : '') + '>← Prev</button>' +
+      '<span>Page ' + page + ' of ' + totalPages + '</span>' +
+      '<button class="btn btn-secondary btn-sm" id="next-btn"' + (page >= totalPages ? ' disabled' : '') + '>Next →</button>';
+    var prevBtn = document.getElementById('prev-btn');
+    var nextBtn = document.getElementById('next-btn');
+    if (prevBtn) prevBtn.addEventListener('click', function() { currentPage--; fetchOrders(currentRange, currentPage, currentSort); });
+    if (nextBtn) nextBtn.addEventListener('click', function() { currentPage++; fetchOrders(currentRange, currentPage, currentSort); });
   }
 
   function confidenceLabel(s) {
@@ -96,13 +178,19 @@
   document.getElementById('range-select').addEventListener('change', function() {
     currentRange = this.value;
     currentPage = 1;
-    fetchOrders(currentRange, currentPage);
+    fetchOrders(currentRange, currentPage, currentSort);
+  });
+
+  document.getElementById('sort-select').addEventListener('change', function() {
+    currentSort = this.value;
+    currentPage = 1;
+    fetchOrders(currentRange, currentPage, currentSort);
   });
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => fetchOrders(currentRange, currentPage));
+    document.addEventListener('DOMContentLoaded', () => fetchOrders(currentRange, currentPage, currentSort));
   } else {
-    fetchOrders(currentRange, currentPage);
+    fetchOrders(currentRange, currentPage, currentSort);
   }
 </script>
 ` }) %>

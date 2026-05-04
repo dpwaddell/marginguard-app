@@ -63,7 +63,47 @@ router.get('/dashboard', auth, async (req, res) => {
   }
 });
 
+// --- Dashboard: top products by revenue ---
+router.get('/dashboard/products', auth, async (req, res) => {
+  try {
+    const range = req.query.range || '7d';
+    const days = parseDays(range);
+    const since = new Date(Date.now() - days * 86400000).toISOString();
+
+    const { rows } = await query(
+      `SELECT oml.title as product_title,
+              oml.sku as variant_title,
+              COALESCE(SUM(oml.gross_line_revenue),0) as total_revenue,
+              AVG(oml.margin_percent) as avg_margin,
+              COUNT(DISTINCT oml.order_id) as order_count,
+              COALESCE(SUM(oml.net_profit),0) as total_profit,
+              BOOL_OR(oml.missing_cogs) as has_missing_cogs
+       FROM order_margin_lines oml
+       JOIN order_margins om ON om.order_id = oml.order_id AND om.shop = oml.shop
+       WHERE oml.shop=$1 AND om.processed_at >= $2
+       GROUP BY oml.title, oml.sku
+       ORDER BY total_revenue DESC
+       LIMIT 10`,
+      [req.shop, since]
+    );
+
+    res.json({ products: rows });
+  } catch (err) {
+    console.error('[API] /dashboard/products error:', err.message);
+    res.status(500).json({ error: 'Failed to load product data' });
+  }
+});
+
 // --- Orders ---
+const ORDER_SORT = {
+  margin_asc:    'margin_percent ASC NULLS LAST',
+  profit_asc:    'net_profit ASC',
+  profit_desc:   'net_profit DESC',
+  revenue_desc:  'gross_revenue DESC',
+  discount_desc: 'discount_total DESC',
+  recent:        'processed_at DESC',
+};
+
 router.get('/orders', auth, async (req, res) => {
   try {
     const range = req.query.range || '30d';
@@ -71,18 +111,28 @@ router.get('/orders', auth, async (req, res) => {
     const since = new Date(Date.now() - days * 86400000).toISOString();
     const page = Math.max(1, parseInt(req.query.page || 1));
     const isPro = req.shopRecord.plan_name === 'Pro';
-    const limit = isPro ? 250 : 50;
+    const limit = 25;
+    const maxRows = isPro ? null : 50;
     const offset = (page - 1) * limit;
+    const sortKey = req.query.sort || 'margin_asc';
+    const orderClause = ORDER_SORT[sortKey] || ORDER_SORT.margin_asc;
 
-    const { rows } = await query(
-      `SELECT order_id, order_name, processed_at, currency, gross_revenue, discount_total,
-              net_revenue, net_profit, margin_percent, low_margin, confidence_status, missing_cogs
-       FROM order_margins WHERE shop=$1 AND processed_at>=$2
-       ORDER BY processed_at DESC LIMIT $3 OFFSET $4`,
-      [req.shop, since, limit, offset]
-    );
+    const [{ rows }, { rows: countRows }] = await Promise.all([
+      query(
+        `SELECT order_id, order_name, processed_at, currency, gross_revenue, discount_total,
+                net_revenue, net_profit, margin_percent, low_margin, confidence_status, missing_cogs
+         FROM order_margins WHERE shop=$1 AND processed_at>=$2
+         ORDER BY ${orderClause} LIMIT $3 OFFSET $4`,
+        [req.shop, since, limit, offset]
+      ),
+      query(
+        `SELECT COUNT(*) FROM order_margins WHERE shop=$1 AND processed_at>=$2${maxRows ? ` LIMIT ${maxRows}` : ''}`,
+        [req.shop, since]
+      ),
+    ]);
 
-    res.json({ orders: rows, page, limit, is_pro: isPro });
+    const total = Math.min(parseInt(countRows[0].count), maxRows || Infinity);
+    res.json({ orders: rows, page, limit, total, is_pro: isPro });
   } catch (err) {
     console.error('[API] /orders error:', err.message);
     res.status(500).json({ error: 'Failed to load orders' });
@@ -256,6 +306,11 @@ router.post('/sync/orders', auth, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Failed to start sync' });
   }
+});
+
+// --- Billing status ---
+router.get('/billing/status', auth, async (req, res) => {
+  res.json({ plan: req.shopRecord.plan_name || 'Free' });
 });
 
 function parseDays(range) {

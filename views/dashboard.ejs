@@ -13,19 +13,26 @@
   </div>
 
   <div id="alert-container"></div>
+  <div id="leakage-container"></div>
 
+  <div style="height:1px;background:#e1e3e5;margin:4px 0 16px"></div>
+
+  <div class="section-label">Performance overview</div>
   <div class="stat-grid" id="summary-stats">
-    <div class="stat-card"><div class="stat-label">Total Revenue</div><div class="stat-value" id="stat-revenue">—</div></div>
-    <div class="stat-card"><div class="stat-label">Discounts Given</div><div class="stat-value warning" id="stat-discounts">—</div></div>
-    <div class="stat-card"><div class="stat-label">Total Costs</div><div class="stat-value" id="stat-costs">—</div></div>
-    <div class="stat-card"><div class="stat-label">Net Profit</div><div class="stat-value" id="stat-profit">—</div></div>
-    <div class="stat-card"><div class="stat-label">Avg Margin</div><div class="stat-value" id="stat-margin">—</div></div>
-    <div class="stat-card"><div class="stat-label">Low-Margin Orders</div><div class="stat-value warning" id="stat-low-margin">—</div></div>
-    <div class="stat-card"><div class="stat-label">Missing Product Costs</div><div class="stat-value warning" id="stat-missing-cogs">—</div></div>
+    <div class="stat-card accent-blue"><div class="stat-label">Total Revenue</div><div class="stat-value" id="stat-revenue">—</div></div>
+    <div class="stat-card accent-amber"><div class="stat-label">Discounts Given</div><div class="stat-value warning" id="stat-discounts">—</div></div>
+    <div class="stat-card accent-grey"><div class="stat-label">Total Costs</div><div class="stat-value" id="stat-costs">—</div></div>
+    <div class="stat-card accent-green"><div class="stat-label">Net Profit</div><div class="stat-value" id="stat-profit">—</div></div>
+    <div class="stat-card accent-green"><div class="stat-label">Avg Margin</div><div class="stat-value" id="stat-margin">—</div></div>
+    <div class="stat-card accent-amber"><div class="stat-label">Low-Margin Orders</div><div class="stat-value warning" id="stat-low-margin">—</div></div>
+    <div class="stat-card accent-red"><div class="stat-label">Missing Product Costs</div><div class="stat-value warning" id="stat-missing-cogs">—</div></div>
   </div>
 
   <div class="card">
-    <div class="card-title">Orders at Risk — Lowest Margins</div>
+    <div class="card-header">
+      <span class="card-title">Orders at risk — lowest margins</span>
+      <span id="risk-count-badge"></span>
+    </div>
     <table id="low-margin-table">
       <thead>
         <tr>
@@ -43,6 +50,27 @@
     </table>
   </div>
 
+  <div class="card" id="top-products-card" style="display:none">
+    <div class="card-header">
+      <span class="card-title">Top Products by Revenue</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Variant</th>
+          <th class="text-right">Orders</th>
+          <th class="text-right">Revenue</th>
+          <th class="text-right">Profit</th>
+          <th class="text-right">Avg Margin</th>
+          <th>Cost data</th>
+        </tr>
+      </thead>
+      <tbody id="top-products-tbody">
+      </tbody>
+    </table>
+  </div>
+
   <div style="margin-top:12px">
     <a href="/app/orders" class="btn btn-secondary btn-sm">View all orders →</a>
     <a href="/app/products" class="btn btn-secondary btn-sm" style="margin-left:8px">Fix missing product costs →</a>
@@ -56,11 +84,15 @@
   async function fetchDashboard(range) {
     try {
       const token = await getSessionToken();
-      const res = await fetch('/api/dashboard?range=' + range, {
-        headers: { 'Authorization': 'Bearer ' + token }
-      });
+      var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
+      const [res, prodRes] = await Promise.all([
+        fetch('/api/dashboard?range=' + range + '&shop=' + shop, { headers: { 'Authorization': 'Bearer ' + token } }),
+        fetch('/api/dashboard/products?range=' + range + '&shop=' + shop, { headers: { 'Authorization': 'Bearer ' + token } }),
+      ]);
       const data = await res.json();
+      const prodData = prodRes.ok ? await prodRes.json() : null;
       renderDashboard(data);
+      if (prodData) renderTopProducts(prodData.products || []);
     } catch(e) {
       document.getElementById('low-margin-rows').innerHTML = '<tr><td colspan="6" style="color:#d72c0d;padding:20px">Failed to load dashboard data.</td></tr>';
     }
@@ -82,35 +114,82 @@
     document.getElementById('stat-low-margin').textContent = data.low_margin_count || 0;
     document.getElementById('stat-missing-cogs').textContent = data.missing_cogs_count || 0;
 
+    // Risk count badge
+    const riskBadge = document.getElementById('risk-count-badge');
+    if (riskBadge && data.top_low_margin_orders) {
+      const n = data.top_low_margin_orders.length;
+      riskBadge.innerHTML = n > 0 ? '<span class="badge badge-danger">' + n + ' at risk</span>' : '';
+    }
+
     // Alert bar
     const alertCon = document.getElementById('alert-container');
     if (data.low_margin_count > 0) {
-      alertCon.innerHTML = '<div class="alert-bar danger">⚠ You may have profit leakage: <strong>' + data.low_margin_count + ' low-margin order' + (data.low_margin_count > 1 ? 's' : '') + '</strong> this period. <a href="/app/orders">Review now →</a></div>';
+      alertCon.innerHTML = '<div class="alert-bar danger">⚠ <strong>' + data.low_margin_count + ' low-margin order' + (data.low_margin_count > 1 ? 's' : '') + '</strong> this period — review to identify profit leakage. <a href="/app/orders?sort=margin_asc">Review now →</a></div>';
     } else if (data.missing_cogs_count > 0) {
-      alertCon.innerHTML = '<div class="alert-bar">⚠ <strong>' + data.missing_cogs_count + ' order' + (data.missing_cogs_count > 1 ? 's' : '') + '</strong> have missing product costs — margin estimates may be incomplete. <a href="/app/products">Fix now →</a></div>';
+      alertCon.innerHTML = '<div class="alert-bar">⚠ <strong>' + data.missing_cogs_count + ' order' + (data.missing_cogs_count > 1 ? 's' : '') + '</strong> have missing product costs — margin estimates may be understated. <a href="/app/products">Fix now →</a></div>';
     } else {
       alertCon.innerHTML = '';
+    }
+
+    // Profit leakage estimate
+    const leakCon = document.getElementById('leakage-container');
+    if (data.missing_cogs_count > 0 && s.avg_margin) {
+      const avgMargin = parseFloat(s.avg_margin) / 100;
+      const revenuePerOrder = parseFloat(s.total_revenue) / Math.max(parseInt(s.order_count), 1);
+      const estimatedLeakage = data.missing_cogs_count * revenuePerOrder * avgMargin;
+      if (estimatedLeakage > 0) {
+        leakCon.innerHTML =
+          '<div class="alert-bar info" style="margin-bottom:14px">' +
+          '<div>' +
+          '<div style="font-size:13px;font-weight:600;margin-bottom:2px">💡 Estimated profit at risk from incomplete COGS</div>' +
+          '<div style="font-size:22px;font-weight:800;color:#2c6ecb">' + fmt(estimatedLeakage) + '</div>' +
+          '<div style="font-size:12px;color:#6d7175;margin-top:2px">Based on ' + data.missing_cogs_count + ' orders with missing costs × your average margin of ' + fmtPct(s.avg_margin) + '. <a href="/app/products">Add missing costs →</a></div>' +
+          '</div></div>';
+      } else {
+        leakCon.innerHTML = '';
+      }
+    } else {
+      leakCon.innerHTML = '';
     }
 
     const rows = data.top_low_margin_orders || [];
     const tbody = document.getElementById('low-margin-rows');
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No orders in this period.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><h3>No orders yet</h3><p>Orders will appear here after the first sync.</p></div></td></tr>';
       return;
     }
     tbody.innerHTML = rows.map(o => {
       const margin = parseFloat(o.margin_percent);
-      const marginClass = margin < 0 ? 'negative' : margin < 15 ? 'warning' : 'positive';
+      const marginClass = margin < 0 ? 'text-red' : margin < 15 ? 'text-amber' : 'text-green';
+      const profitClass = parseFloat(o.net_profit) < 0 ? 'text-red' : 'text-green';
       const confidence = o.confidence_status || 'complete';
       const badgeClass = o.low_margin ? 'badge-danger' : 'badge-success';
       return '<tr>' +
         '<td><a href="/app/orders/' + o.order_id + '">' + (o.order_name || o.order_id) + '</a></td>' +
         '<td class="text-muted">' + (o.processed_at ? new Date(o.processed_at).toLocaleDateString('en-GB') : '—') + '</td>' +
         '<td>' + fmt(o.net_revenue) + '</td>' +
-        '<td class="text-right" style="color:' + (parseFloat(o.net_profit) < 0 ? '#d72c0d' : '#008060') + '">' + fmt(o.net_profit) + '</td>' +
-        '<td class="text-right"><span class="' + marginClass + '">' + fmtPct(o.margin_percent) + '</span></td>' +
+        '<td class="text-right ' + profitClass + '">' + fmt(o.net_profit) + '</td>' +
+        '<td class="text-right ' + marginClass + '"><strong>' + fmtPct(o.margin_percent) + '</strong></td>' +
         '<td><span class="badge ' + badgeClass + '">' + (o.low_margin ? 'Low margin' : 'OK') + '</span>' +
         (confidence !== 'complete' ? ' <span class="badge badge-warning">' + confidenceLabel(confidence) + '</span>' : '') + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function renderTopProducts(products) {
+    if (!products.length) return;
+    document.getElementById('top-products-card').style.display = '';
+    document.getElementById('top-products-tbody').innerHTML = products.map(p => {
+      const margin = parseFloat(p.avg_margin);
+      const marginClass = isNaN(margin) ? '' : margin < 0 ? 'text-red' : margin < 15 ? 'text-amber' : 'text-green';
+      return '<tr>' +
+        '<td><strong>' + (p.product_title || '—') + '</strong></td>' +
+        '<td class="text-muted">' + (p.variant_title || '—') + '</td>' +
+        '<td class="text-right">' + (p.order_count || 0) + '</td>' +
+        '<td class="text-right">' + fmt(p.total_revenue) + '</td>' +
+        '<td class="text-right">' + fmt(p.total_profit) + '</td>' +
+        '<td class="text-right ' + marginClass + '"><strong>' + fmtPct(p.avg_margin) + '</strong></td>' +
+        '<td>' + (p.has_missing_cogs ? '<span class="badge badge-warning">Missing costs</span>' : '<span class="badge badge-success">Complete</span>') + '</td>' +
         '</tr>';
     }).join('');
   }
