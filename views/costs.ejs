@@ -184,7 +184,8 @@
       const data = await res.json();
       if (data.error) {
         if (data.upgrade) {
-          alert(data.error + '\\nUpgrade to Pro to unlock more cost rules.');
+          document.getElementById('plan-notice').innerHTML = '<div class="upgrade-banner"><strong>Plan limit reached:</strong> ' + data.error + '. <a href="/app/billing">Upgrade to Pro →</a></div>';
+          document.getElementById('form-container').style.display = 'none';
         } else {
           alert(data.error);
         }

@@ -118,7 +118,8 @@
     status.textContent = 'Starting sync...';
     try {
       const token = await getSessionToken();
-      await fetch(endpoint, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } });
+      const shop = window.__MARGINGUARD__.shop;
+      await fetch(endpoint + '?shop=' + shop, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } });
       status.textContent = 'Sync started. Data will update shortly.';
       setTimeout(() => { status.textContent = ''; }, 5000);
     } catch(e) { status.textContent = 'Sync failed.'; }

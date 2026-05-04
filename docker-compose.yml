@@ -5,7 +5,8 @@ services:
       - "3015:3000"
     env_file: .env
     depends_on:
-      - marginguard-db
+      marginguard-db:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - default
@@ -20,6 +21,11 @@ services:
     volumes:
       - marginguard_pgdata:/var/lib/postgresql/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marginguard"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   marginguard_pgdata:

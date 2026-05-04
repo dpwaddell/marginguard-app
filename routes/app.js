@@ -33,7 +33,6 @@ function renderWithShop(res, view, extras = {}) {
 }
 
 router.get('/', (req, res) => {
-  console.log('[App] / host param:', req.query.host);
   renderWithShop(res, 'dashboard', { shop: req.embeddedShop, host: req.query.host || '', pageTitle: 'Dashboard' });
 });
 

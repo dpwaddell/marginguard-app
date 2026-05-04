@@ -15,15 +15,13 @@ const attachShopRecord = async (req, res, next) => {
 };
 const auth = [requireSessionToken, attachShopRecord];
 
-// --- Dashboard (auth temporarily disabled for testing) ---
-router.get('/dashboard', async (req, res) => {
-  const shop = req.query.shop;
-  if (!shop) return res.status(400).json({ error: 'Missing shop' });
-  console.log('[API] /dashboard called for shop:', shop);
+// --- Dashboard ---
+router.get('/dashboard', auth, async (req, res) => {
   try {
     const range = req.query.range || '7d';
     const days = parseDays(range);
     const since = new Date(Date.now() - days * 86400000).toISOString();
+    const shop = req.shop;
 
     const [summary, lowMarginOrders, missingCogs, topOrders] = await Promise.all([
       query(

@@ -11,10 +11,14 @@ const { seedDefaultRules } = require('../lib/cost-rules');
 
 const nonces = new Map();
 
+function isValidShop(shop) {
+  return /^[a-zA-Z0-9][a-zA-Z0-9\-]*\.myshopify\.com$/.test(shop);
+}
+
 // Entry point — redirect to Shopify OAuth
 router.get('/', (req, res) => {
   const shop = req.query.shop;
-  if (!shop) return res.status(400).send('Missing shop parameter');
+  if (!shop || !isValidShop(shop)) return res.status(400).send('Invalid shop parameter.');
 
   const nonce = generateNonce();
   nonces.set(nonce, { shop, ts: Date.now() });
@@ -29,6 +33,10 @@ router.get('/callback', async (req, res) => {
 
   if (!shop || !code || !state || !hmac) {
     return res.status(400).send('Missing required parameters');
+  }
+
+  if (!isValidShop(shop)) {
+    return res.status(400).send('Invalid shop parameter.');
   }
 
   // Verify nonce

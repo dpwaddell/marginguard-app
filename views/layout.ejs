@@ -79,9 +79,22 @@
     window.__MARGINGUARD__ = {
       apiKey: '<%= apiKey %>',
       shop: '<%= shop %>',
+      host: '<%= host %>',
       appUrl: '<%= appUrl %>'
     };
   </script>
   <script src="/app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      var shop = window.__MARGINGUARD__.shop;
+      var hostParam = new URLSearchParams(window.location.search).get('host') || window.__MARGINGUARD__.host || '';
+      document.querySelectorAll('.nav-link').forEach(function(link) {
+        var href = link.getAttribute('href');
+        if (href && href.startsWith('/app')) {
+          link.href = href + '?shop=' + shop + '&host=' + hostParam;
+        }
+      });
+    });
+  </script>
 </body>
 </html>

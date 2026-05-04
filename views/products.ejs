@@ -94,7 +94,18 @@
       });
       const data = await res.json();
       if (data.error) { alert(data.error); return; }
-      fetchProducts();
+      const v = data.variant;
+      const row = document.getElementById('row-' + variantId);
+      if (row) {
+        const cells = row.querySelectorAll('td');
+        cells[4].textContent = fmt(v.manual_unit_cost);
+        cells[5].innerHTML = '<strong>' + fmt(v.effective_unit_cost) + '</strong>';
+        cells[6].innerHTML = v.source === 'manual' ? '<span class="badge badge-info">Manual</span>' : '<span class="badge badge-grey">Shopify</span>';
+        cells[7].innerHTML = v.missing_cost ? '<span class="badge badge-danger">Missing</span>' : '<span class="badge badge-success">OK</span>';
+        const editFn = "editCost('" + variantId + "', " + (v.manual_unit_cost != null ? v.manual_unit_cost : 'null') + ")";
+        cells[8].innerHTML = '<button class="btn btn-secondary btn-sm" onclick="' + editFn + '">Edit</button> <span style="color:#008060;font-size:12px">Saved ✓</span>';
+        setTimeout(() => { cells[8].innerHTML = '<button class="btn btn-secondary btn-sm" onclick="' + editFn + '">Edit</button>'; }, 2000);
+      }
     } catch(e) {
       alert('Failed to save cost override.');
     }
