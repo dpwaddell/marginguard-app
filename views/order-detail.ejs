@@ -52,7 +52,8 @@
   async function fetchOrder() {
     try {
       const token = await getSessionToken();
-      const res = await fetch('/api/orders/' + orderId, {
+      const shop = window.__MARGINGUARD__.shop;
+      const res = await fetch('/api/orders/' + orderId + '?shop=' + shop, {
         headers: { 'Authorization': 'Bearer ' + token }
       });
       const data = await res.json();
@@ -137,6 +138,10 @@
     } catch {}
   }
 
-  window.addEventListener('DOMContentLoaded', fetchOrder);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fetchOrder);
+  } else {
+    fetchOrder();
+  }
 </script>
 ` }) %>

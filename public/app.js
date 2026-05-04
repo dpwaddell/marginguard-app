@@ -1,25 +1,20 @@
 (function () {
   'use strict';
 
-  // App Bridge session token retrieval
-  async function getSessionToken() {
-    if (typeof shopify !== 'undefined' && shopify.idToken) {
-      return shopify.idToken();
+  // App Bridge session token retrieval (App Bridge 4.x)
+  window.getSessionToken = async function () {
+    if (window.shopify && typeof window.shopify.idToken === 'function') {
+      return await window.shopify.idToken();
     }
-    // Fallback: App Bridge 3.x
-    if (window.__shopify_app_bridge__) {
-      const bridge = window.__shopify_app_bridge__;
-      const { getSessionToken } = bridge;
-      if (typeof getSessionToken === 'function') {
-        return getSessionToken(bridge);
+    // Wait up to 3 seconds for App Bridge to initialise
+    for (let i = 0; i < 30; i++) {
+      await new Promise(r => setTimeout(r, 100));
+      if (window.shopify && typeof window.shopify.idToken === 'function') {
+        return await window.shopify.idToken();
       }
     }
-    // Dev fallback — not for production
-    console.warn('[MarginGuard] No App Bridge found, using empty token');
-    return 'dev-token';
-  }
-
-  window.getSessionToken = getSessionToken;
+    throw new Error('App Bridge not available after timeout');
+  };
 
   // Simple navigation highlight
   document.addEventListener('DOMContentLoaded', function () {

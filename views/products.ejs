@@ -35,7 +35,8 @@
   async function fetchProducts() {
     try {
       const token = await getSessionToken();
-      const res = await fetch('/api/products', { headers: { 'Authorization': 'Bearer ' + token } });
+      const shop = window.__MARGINGUARD__.shop;
+      const res = await fetch('/api/products?shop=' + shop, { headers: { 'Authorization': 'Bearer ' + token } });
       const data = await res.json();
       renderProducts(data.products || []);
     } catch(e) {
@@ -85,7 +86,8 @@
   async function saveCost(variantId, costStr) {
     try {
       const token = await getSessionToken();
-      const res = await fetch('/api/products/' + variantId + '/cost-override', {
+      const shop = window.__MARGINGUARD__.shop;
+      const res = await fetch('/api/products/' + variantId + '/cost-override?shop=' + shop, {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
         body: JSON.stringify({ manual_unit_cost: costStr === '' ? null : parseFloat(costStr) })
@@ -103,7 +105,8 @@
     notice.innerHTML = '<div class="alert-bar">Syncing products from Shopify...</div>';
     try {
       const token = await getSessionToken();
-      await fetch('/api/sync/products', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } });
+      const shop = window.__MARGINGUARD__.shop;
+      await fetch('/api/sync/products?shop=' + shop, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } });
       notice.innerHTML = '<div class="alert-bar">Sync started. Refresh in a moment to see updated data.</div>';
       setTimeout(() => { notice.innerHTML = ''; fetchProducts(); }, 4000);
     } catch(e) {
@@ -111,6 +114,10 @@
     }
   });
 
-  window.addEventListener('DOMContentLoaded', fetchProducts);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fetchProducts);
+  } else {
+    fetchProducts();
+  }
 </script>
 ` }) %>

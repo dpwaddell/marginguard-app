@@ -56,7 +56,8 @@
   async function fetchDashboard(range) {
     try {
       const token = await getSessionToken();
-      const res = await fetch('/api/dashboard?range=' + range, {
+      const shop = window.__MARGINGUARD__.shop;
+      const res = await fetch('/api/dashboard?range=' + range + '&shop=' + shop, {
         headers: { 'Authorization': 'Bearer ' + token }
       });
       const data = await res.json();
@@ -125,6 +126,10 @@
     fetchDashboard(currentRange);
   });
 
-  window.addEventListener('DOMContentLoaded', () => fetchDashboard(currentRange));
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => fetchDashboard(currentRange));
+  } else {
+    fetchDashboard(currentRange);
+  }
 </script>
 ` }) %>

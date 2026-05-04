@@ -42,7 +42,8 @@
   async function fetchOrders(range, page) {
     try {
       const token = await getSessionToken();
-      const res = await fetch('/api/orders?range=' + range + '&page=' + page, {
+      const shop = window.__MARGINGUARD__.shop;
+      const res = await fetch('/api/orders?range=' + range + '&page=' + page + '&shop=' + shop, {
         headers: { 'Authorization': 'Bearer ' + token }
       });
       const data = await res.json();
@@ -98,6 +99,10 @@
     fetchOrders(currentRange, currentPage);
   });
 
-  window.addEventListener('DOMContentLoaded', () => fetchOrders(currentRange, currentPage));
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => fetchOrders(currentRange, currentPage));
+  } else {
+    fetchOrders(currentRange, currentPage);
+  }
 </script>
 ` }) %>

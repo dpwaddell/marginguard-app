@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= typeof pageTitle !== 'undefined' ? pageTitle + ' — MarginGuard' : 'MarginGuard' %></title>
+  <meta name="shopify-api-key" content="<%= apiKey %>" />
   <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" crossorigin="anonymous"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -80,16 +81,6 @@
       shop: '<%= shop %>',
       appUrl: '<%= appUrl %>'
     };
-    var appBridgeConfig = {
-      apiKey: "<%= apiKey %>",
-      host: "<%= host %>",
-      forceRedirect: true
-    };
-    if (window.shopify) {
-      // App Bridge 4.x - config is auto-detected
-    } else if (window.__shopify_app_bridge_init) {
-      window.__shopify_app_bridge_init(appBridgeConfig);
-    }
   </script>
   <script src="/app.js"></script>
 </body>

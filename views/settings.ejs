@@ -73,7 +73,8 @@
   async function loadSettings() {
     try {
       const token = await getSessionToken();
-      const res = await fetch('/api/settings', { headers: { 'Authorization': 'Bearer ' + token } });
+      const shop = window.__MARGINGUARD__.shop;
+      const res = await fetch('/api/settings?shop=' + shop, { headers: { 'Authorization': 'Bearer ' + token } });
       const data = await res.json();
       const s = data.settings || {};
       document.getElementById('target-margin').value = s.target_margin_percent ?? 30;
@@ -92,7 +93,8 @@
     status.textContent = 'Saving...';
     try {
       const token = await getSessionToken();
-      const res = await fetch('/api/settings', {
+      const shop = window.__MARGINGUARD__.shop;
+      const res = await fetch('/api/settings?shop=' + shop, {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -125,6 +127,10 @@
   document.getElementById('sync-products-btn').addEventListener('click', () => triggerSync('/api/sync/products'));
   document.getElementById('sync-orders-btn').addEventListener('click', () => triggerSync('/api/sync/orders'));
 
-  window.addEventListener('DOMContentLoaded', loadSettings);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadSettings);
+  } else {
+    loadSettings();
+  }
 </script>
 ` }) %>
