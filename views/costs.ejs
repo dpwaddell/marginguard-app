@@ -1,0 +1,197 @@
+<%- include('layout', { body: `
+<div class="page">
+  <div class="page-header">
+    <h1>Cost Rules</h1>
+    <button class="btn btn-primary btn-sm" id="add-rule-btn">+ Add Rule</button>
+  </div>
+
+  <div id="plan-notice"></div>
+  <div id="form-container" style="display:none">
+    <div class="card">
+      <div class="card-title" id="form-title">New Cost Rule</div>
+      <form id="rule-form">
+        <input type="hidden" id="rule-id">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="form-group">
+            <label class="form-label">Rule Name</label>
+            <input class="form-input" id="rule-name" placeholder="e.g. Payment processing" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Applies To</label>
+            <select class="form-input" id="rule-applies">
+              <option value="order">Per Order</option>
+              <option value="product_tag">Product Tag</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cost Type</label>
+            <select class="form-input" id="rule-type">
+              <option value="fixed">Fixed amount</option>
+              <option value="percentage">Percentage</option>
+              <option value="mixed">Mixed (fixed + %)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Fixed Amount (£)</label>
+            <input class="form-input" id="rule-fixed" type="number" step="0.01" min="0" placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Percentage Rate (%)</label>
+            <input class="form-input" id="rule-pct" type="number" step="0.01" min="0" placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Product Tag (if applicable)</label>
+            <input class="form-input" id="rule-tag" placeholder="e.g. marketplace">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" id="rule-per-unit"> Per unit (multiply by quantity)
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-left:16px">
+            <input type="checkbox" id="rule-active" checked> Active
+          </label>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:16px">
+          <button type="submit" class="btn btn-primary">Save Rule</button>
+          <button type="button" class="btn btn-secondary" id="cancel-btn">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card" style="padding:0; overflow:hidden">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Applies To</th>
+          <th>Type</th>
+          <th>Fixed</th>
+          <th>Rate</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="rules-tbody">
+        <tr><td colspan="7" class="loading">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  let rules = [];
+  let isPro = false;
+
+  async function fetchRules() {
+    try {
+      const token = await getSessionToken();
+      const res = await fetch('/api/cost-rules', { headers: { 'Authorization': 'Bearer ' + token } });
+      const data = await res.json();
+      rules = data.rules || [];
+      isPro = data.is_pro;
+      renderRules();
+      if (!isPro) {
+        document.getElementById('plan-notice').innerHTML = '<div class="upgrade-banner"><strong>Free Plan:</strong> Limited to 3 cost rules. Product tag rules require Pro. <a href="/app/billing">Upgrade to Pro →</a></div>';
+      }
+    } catch(e) {
+      document.getElementById('rules-tbody').innerHTML = '<tr><td colspan="7" style="color:#d72c0d;padding:20px">Failed to load rules.</td></tr>';
+    }
+  }
+
+  function fmt(n) { return n ? '£' + parseFloat(n).toFixed(2) : '—'; }
+
+  function renderRules() {
+    const tbody = document.getElementById('rules-tbody');
+    if (!rules.length) {
+      tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><p>No cost rules yet. Add your first rule above.</p></div></td></tr>';
+      return;
+    }
+    tbody.innerHTML = rules.map(r => {
+      return '<tr>' +
+        '<td><strong>' + r.name + '</strong>' + (r.premium_only ? ' <span class="badge badge-pro">Pro</span>' : '') + '</td>' +
+        '<td><span class="badge badge-grey">' + (r.applies_to === 'product_tag' ? 'Tag: ' + (r.product_tag || '?') : 'Order') + '</span></td>' +
+        '<td>' + r.cost_type + '</td>' +
+        '<td>' + fmt(r.fixed_amount) + '</td>' +
+        '<td>' + (r.percentage_rate ? parseFloat(r.percentage_rate).toFixed(2) + '%' : '—') + '</td>' +
+        '<td>' + (r.active ? '<span class="badge badge-success">Active</span>' : '<span class="badge badge-grey">Inactive</span>') + '</td>' +
+        '<td><button class="btn btn-secondary btn-sm" onclick="editRule(' + r.id + ')">Edit</button> ' +
+          '<button class="btn btn-danger btn-sm" onclick="deleteRule(' + r.id + ')">Delete</button></td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function showForm(rule) {
+    document.getElementById('form-container').style.display = '';
+    document.getElementById('form-title').textContent = rule ? 'Edit Cost Rule' : 'New Cost Rule';
+    document.getElementById('rule-id').value = rule?.id || '';
+    document.getElementById('rule-name').value = rule?.name || '';
+    document.getElementById('rule-applies').value = rule?.applies_to || 'order';
+    document.getElementById('rule-type').value = rule?.cost_type || 'fixed';
+    document.getElementById('rule-fixed').value = rule?.fixed_amount || '';
+    document.getElementById('rule-pct').value = rule?.percentage_rate || '';
+    document.getElementById('rule-tag').value = rule?.product_tag || '';
+    document.getElementById('rule-per-unit').checked = !!rule?.per_unit;
+    document.getElementById('rule-active').checked = rule ? !!rule.active : true;
+  }
+
+  function editRule(id) {
+    const rule = rules.find(r => r.id === id);
+    if (rule) showForm(rule);
+  }
+
+  async function deleteRule(id) {
+    if (!confirm('Delete this cost rule?')) return;
+    try {
+      const token = await getSessionToken();
+      const res = await fetch('/api/cost-rules/' + id, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+      const data = await res.json();
+      if (data.error) { alert(data.error); return; }
+      fetchRules();
+    } catch(e) { alert('Failed to delete rule.'); }
+  }
+
+  document.getElementById('add-rule-btn').addEventListener('click', () => showForm(null));
+  document.getElementById('cancel-btn').addEventListener('click', () => { document.getElementById('form-container').style.display = 'none'; });
+
+  document.getElementById('rule-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('rule-id').value;
+    const payload = {
+      name: document.getElementById('rule-name').value,
+      applies_to: document.getElementById('rule-applies').value,
+      cost_type: document.getElementById('rule-type').value,
+      fixed_amount: document.getElementById('rule-fixed').value || 0,
+      percentage_rate: document.getElementById('rule-pct').value || 0,
+      product_tag: document.getElementById('rule-tag').value || null,
+      per_unit: document.getElementById('rule-per-unit').checked,
+      active: document.getElementById('rule-active').checked,
+    };
+
+    try {
+      const token = await getSessionToken();
+      const url = id ? '/api/cost-rules/' + id : '/api/cost-rules';
+      const method = id ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.error) {
+        if (data.upgrade) {
+          alert(data.error + '\\nUpgrade to Pro to unlock more cost rules.');
+        } else {
+          alert(data.error);
+        }
+        return;
+      }
+      document.getElementById('form-container').style.display = 'none';
+      fetchRules();
+    } catch(e) { alert('Failed to save rule.'); }
+  });
+
+  window.addEventListener('DOMContentLoaded', fetchRules);
+</script>
+` }) %>

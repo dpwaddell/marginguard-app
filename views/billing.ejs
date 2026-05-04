@@ -1,0 +1,67 @@
+<%- include('layout', { body: `
+<div class="page">
+  <div class="page-header">
+    <h1>Billing</h1>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:700px">
+    <div class="card" style="border:2px solid #e1e3e5">
+      <div style="font-size:18px;font-weight:700;margin-bottom:4px">Free</div>
+      <div style="font-size:28px;font-weight:800;margin-bottom:12px">£0<span style="font-size:14px;font-weight:400;color:#6d7175">/mo</span></div>
+      <ul style="list-style:none;line-height:2;color:#6d7175">
+        <li>✓ Last 50 orders</li>
+        <li>✓ Up to 3 cost rules</li>
+        <li>✓ Product cost health</li>
+        <li>✗ Product tag rules</li>
+        <li>✗ Email alerts</li>
+        <li>✗ Order auto-tagging</li>
+        <li>✗ Full order history</li>
+      </ul>
+      <div style="margin-top:16px">
+        <span class="badge badge-grey" style="padding:8px 16px">Current plan</span>
+      </div>
+    </div>
+
+    <div class="card" style="border:2px solid #6d3fc7">
+      <div style="font-size:18px;font-weight:700;margin-bottom:4px">Pro <span class="badge badge-pro">Pro</span></div>
+      <div style="font-size:28px;font-weight:800;margin-bottom:12px">£29<span style="font-size:14px;font-weight:400;color:#6d7175">/mo</span></div>
+      <ul style="list-style:none;line-height:2">
+        <li>✓ All Free features</li>
+        <li>✓ Full order history</li>
+        <li>✓ Unlimited cost rules</li>
+        <li>✓ Product tag cost rules</li>
+        <li>✓ Email alerts</li>
+        <li>✓ Auto-tag low-margin orders</li>
+        <li>✓ Priority support</li>
+      </ul>
+      <div style="margin-top:16px">
+        <button class="btn btn-primary" id="upgrade-btn" style="background:#6d3fc7;border-color:#6d3fc7">Upgrade to Pro</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="billing-status" style="margin-top:16px"></div>
+</div>
+
+<script>
+  document.getElementById('upgrade-btn').addEventListener('click', async () => {
+    const status = document.getElementById('billing-status');
+    status.innerHTML = '<div class="alert-bar">Redirecting to Shopify billing...</div>';
+    try {
+      const token = await getSessionToken();
+      const res = await fetch('/billing/subscribe', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await res.json();
+      if (data.confirmation_url) {
+        window.top.location.href = data.confirmation_url;
+      } else {
+        status.innerHTML = '<div class="alert-bar danger">Billing error: ' + (data.error || 'Unknown error') + '</div>';
+      }
+    } catch(e) {
+      status.innerHTML = '<div class="alert-bar danger">Failed to start subscription. Please try again.</div>';
+    }
+  });
+</script>
+` }) %>

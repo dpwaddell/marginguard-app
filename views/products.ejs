@@ -1,0 +1,116 @@
+<%- include('layout', { body: `
+<div class="page">
+  <div class="page-header">
+    <h1>Product Costs</h1>
+    <div class="flex gap-2">
+      <button class="btn btn-secondary btn-sm" id="sync-btn">Sync from Shopify</button>
+    </div>
+  </div>
+
+  <div id="sync-notice"></div>
+
+  <div class="card" style="padding:0; overflow:hidden">
+    <table>
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Variant</th>
+          <th>SKU</th>
+          <th class="text-right">Shopify COGS</th>
+          <th class="text-right">Manual Override</th>
+          <th class="text-right">Effective COGS</th>
+          <th>Source</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="products-tbody">
+        <tr><td colspan="9" class="loading">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  async function fetchProducts() {
+    try {
+      const token = await getSessionToken();
+      const res = await fetch('/api/products', { headers: { 'Authorization': 'Bearer ' + token } });
+      const data = await res.json();
+      renderProducts(data.products || []);
+    } catch(e) {
+      document.getElementById('products-tbody').innerHTML = '<tr><td colspan="9" style="color:#d72c0d;padding:20px">Failed to load products.</td></tr>';
+    }
+  }
+
+  function fmt(n) { return n == null ? '—' : '£' + parseFloat(n).toFixed(2); }
+
+  function renderProducts(products) {
+    const tbody = document.getElementById('products-tbody');
+    if (!products.length) {
+      tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><p>No product costs yet. Click "Sync from Shopify" to import.</p></div></td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = products.map(p => {
+      const statusBadge = p.missing_cost
+        ? '<span class="badge badge-danger">Missing</span>'
+        : '<span class="badge badge-success">OK</span>';
+      const sourceBadge = p.source === 'manual'
+        ? '<span class="badge badge-info">Manual</span>'
+        : '<span class="badge badge-grey">Shopify</span>';
+
+      return '<tr id="row-' + p.variant_id + '">' +
+        '<td>' + (p.product_title || '—') + '</td>' +
+        '<td>' + (p.variant_title || '—') + '</td>' +
+        '<td class="text-muted">' + (p.sku || '—') + '</td>' +
+        '<td class="text-right">' + fmt(p.shopify_unit_cost) + '</td>' +
+        '<td class="text-right" id="manual-display-' + p.variant_id + '">' + fmt(p.manual_unit_cost) + '</td>' +
+        '<td class="text-right"><strong>' + fmt(p.effective_unit_cost) + '</strong></td>' +
+        '<td>' + sourceBadge + '</td>' +
+        '<td>' + statusBadge + '</td>' +
+        '<td>' +
+          '<button class="btn btn-secondary btn-sm" onclick="editCost(\\'' + p.variant_id + '\\', ' + (p.manual_unit_cost || 'null') + ')">Edit</button>' +
+        '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function editCost(variantId, currentCost) {
+    const newCost = prompt('Enter manual cost override (leave blank to clear):', currentCost ?? '');
+    if (newCost === null) return;
+    saveCost(variantId, newCost.trim());
+  }
+
+  async function saveCost(variantId, costStr) {
+    try {
+      const token = await getSessionToken();
+      const res = await fetch('/api/products/' + variantId + '/cost-override', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ manual_unit_cost: costStr === '' ? null : parseFloat(costStr) })
+      });
+      const data = await res.json();
+      if (data.error) { alert(data.error); return; }
+      fetchProducts();
+    } catch(e) {
+      alert('Failed to save cost override.');
+    }
+  }
+
+  document.getElementById('sync-btn').addEventListener('click', async () => {
+    const notice = document.getElementById('sync-notice');
+    notice.innerHTML = '<div class="alert-bar">Syncing products from Shopify...</div>';
+    try {
+      const token = await getSessionToken();
+      await fetch('/api/sync/products', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } });
+      notice.innerHTML = '<div class="alert-bar">Sync started. Refresh in a moment to see updated data.</div>';
+      setTimeout(() => { notice.innerHTML = ''; fetchProducts(); }, 4000);
+    } catch(e) {
+      notice.innerHTML = '<div class="alert-bar danger">Sync failed.</div>';
+    }
+  });
+
+  window.addEventListener('DOMContentLoaded', fetchProducts);
+</script>
+` }) %>

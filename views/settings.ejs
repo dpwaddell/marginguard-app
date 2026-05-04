@@ -1,0 +1,130 @@
+<%- include('layout', { body: `
+<div class="page">
+  <div class="page-header">
+    <h1>Settings</h1>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Margin Thresholds</div>
+    <form id="settings-form">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="form-group">
+          <label class="form-label">Target Margin %</label>
+          <input class="form-input" id="target-margin" type="number" step="0.1" min="0" max="100" placeholder="30">
+          <div class="form-hint">Orders below this margin % will be flagged as low-margin.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Minimum Profit Amount (£)</label>
+          <input class="form-input" id="min-profit" type="number" step="0.01" min="0" placeholder="0.00">
+          <div class="form-hint">Orders below this net profit will also be flagged.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Currency</label>
+          <select class="form-input" id="currency">
+            <option value="GBP">GBP (£)</option>
+            <option value="USD">USD ($)</option>
+            <option value="EUR">EUR (€)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card-title" style="margin-top:24px;margin-bottom:12px">Alert Settings</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="form-group">
+          <label class="form-label">Alert Email</label>
+          <input class="form-input" id="alert-email" type="email" placeholder="you@yourstore.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Low-Margin Order Tag</label>
+          <input class="form-input" id="low-margin-tag" placeholder="marginguard_low_margin">
+          <div class="form-hint">Tag added to low-margin orders in Shopify.</div>
+        </div>
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="email-alerts"> Enable email alerts for low-margin orders
+          </label>
+        </div>
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="order-tagging"> Auto-tag low-margin orders in Shopify
+          </label>
+        </div>
+      </div>
+
+      <div style="margin-top:16px">
+        <button type="submit" class="btn btn-primary">Save Settings</button>
+        <span id="save-status" style="margin-left:12px;color:#6d7175"></span>
+      </div>
+    </form>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="card-title">Manual Data Sync</div>
+    <p style="color:#6d7175;margin-bottom:12px">Re-sync product costs and order margins from Shopify. This runs automatically on install.</p>
+    <div class="flex gap-2">
+      <button class="btn btn-secondary btn-sm" id="sync-products-btn">Sync Product Costs</button>
+      <button class="btn btn-secondary btn-sm" id="sync-orders-btn">Sync Orders</button>
+    </div>
+    <div id="sync-status" style="margin-top:8px;color:#6d7175"></div>
+  </div>
+</div>
+
+<script>
+  async function loadSettings() {
+    try {
+      const token = await getSessionToken();
+      const res = await fetch('/api/settings', { headers: { 'Authorization': 'Bearer ' + token } });
+      const data = await res.json();
+      const s = data.settings || {};
+      document.getElementById('target-margin').value = s.target_margin_percent ?? 30;
+      document.getElementById('min-profit').value = s.min_profit_amount ?? 0;
+      document.getElementById('alert-email').value = s.alert_email || '';
+      document.getElementById('low-margin-tag').value = s.low_margin_tag || 'marginguard_low_margin';
+      document.getElementById('email-alerts').checked = !!s.email_alerts_enabled;
+      document.getElementById('order-tagging').checked = !!s.order_tagging_enabled;
+      if (s.currency) document.getElementById('currency').value = s.currency;
+    } catch(e) {}
+  }
+
+  document.getElementById('settings-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const status = document.getElementById('save-status');
+    status.textContent = 'Saving...';
+    try {
+      const token = await getSessionToken();
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          target_margin_percent: document.getElementById('target-margin').value,
+          min_profit_amount: document.getElementById('min-profit').value,
+          alert_email: document.getElementById('alert-email').value,
+          low_margin_tag: document.getElementById('low-margin-tag').value,
+          email_alerts_enabled: document.getElementById('email-alerts').checked,
+          order_tagging_enabled: document.getElementById('order-tagging').checked,
+          currency: document.getElementById('currency').value,
+        })
+      });
+      const data = await res.json();
+      status.textContent = data.error ? 'Error: ' + data.error : 'Settings saved.';
+      setTimeout(() => { status.textContent = ''; }, 3000);
+    } catch(e) { status.textContent = 'Save failed.'; }
+  });
+
+  async function triggerSync(endpoint) {
+    const status = document.getElementById('sync-status');
+    status.textContent = 'Starting sync...';
+    try {
+      const token = await getSessionToken();
+      await fetch(endpoint, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } });
+      status.textContent = 'Sync started. Data will update shortly.';
+      setTimeout(() => { status.textContent = ''; }, 5000);
+    } catch(e) { status.textContent = 'Sync failed.'; }
+  }
+
+  document.getElementById('sync-products-btn').addEventListener('click', () => triggerSync('/api/sync/products'));
+  document.getElementById('sync-orders-btn').addEventListener('click', () => triggerSync('/api/sync/orders'));
+
+  window.addEventListener('DOMContentLoaded', loadSettings);
+</script>
+` }) %>

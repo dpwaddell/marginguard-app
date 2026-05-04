@@ -1,0 +1,130 @@
+<%- include('layout', { body: `
+<div class="page">
+  <div class="page-header">
+    <h1>Dashboard</h1>
+    <div class="flex gap-2 items-center">
+      <select class="form-input" id="range-select" style="width:auto">
+        <option value="1d">Today</option>
+        <option value="7d" selected>Last 7 days</option>
+        <option value="30d">Last 30 days</option>
+        <option value="90d">Last 90 days</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="alert-container"></div>
+
+  <div class="stat-grid" id="summary-stats">
+    <div class="stat-card"><div class="stat-label">Total Revenue</div><div class="stat-value" id="stat-revenue">—</div></div>
+    <div class="stat-card"><div class="stat-label">Discounts Given</div><div class="stat-value warning" id="stat-discounts">—</div></div>
+    <div class="stat-card"><div class="stat-label">Total Costs</div><div class="stat-value" id="stat-costs">—</div></div>
+    <div class="stat-card"><div class="stat-label">Net Profit</div><div class="stat-value" id="stat-profit">—</div></div>
+    <div class="stat-card"><div class="stat-label">Avg Margin</div><div class="stat-value" id="stat-margin">—</div></div>
+    <div class="stat-card"><div class="stat-label">Low-Margin Orders</div><div class="stat-value warning" id="stat-low-margin">—</div></div>
+    <div class="stat-card"><div class="stat-label">Missing Product Costs</div><div class="stat-value warning" id="stat-missing-cogs">—</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Orders at Risk — Lowest Margins</div>
+    <table id="low-margin-table">
+      <thead>
+        <tr>
+          <th>Order</th>
+          <th>Date</th>
+          <th>Revenue</th>
+          <th class="text-right">Net Profit</th>
+          <th class="text-right">Margin</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="low-margin-rows">
+        <tr><td colspan="6" class="loading">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="margin-top:12px">
+    <a href="/app/orders" class="btn btn-secondary btn-sm">View all orders →</a>
+    <a href="/app/products" class="btn btn-secondary btn-sm" style="margin-left:8px">Fix missing product costs →</a>
+  </div>
+</div>
+
+<script>
+  const cfg = window.__MARGINGUARD__;
+  let currentRange = '7d';
+
+  async function fetchDashboard(range) {
+    try {
+      const token = await getSessionToken();
+      const res = await fetch('/api/dashboard?range=' + range, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await res.json();
+      renderDashboard(data);
+    } catch(e) {
+      document.getElementById('low-margin-rows').innerHTML = '<tr><td colspan="6" style="color:#d72c0d;padding:20px">Failed to load dashboard data.</td></tr>';
+    }
+  }
+
+  function fmt(n) { return '£' + (parseFloat(n) || 0).toFixed(2).replace(/\\B(?=(\\d{3})+(?!\\d))/g, ','); }
+  function fmtPct(n) { return n == null ? '—' : parseFloat(n).toFixed(1) + '%'; }
+
+  function renderDashboard(data) {
+    const s = data.summary || {};
+    document.getElementById('stat-revenue').textContent = fmt(s.total_revenue);
+    document.getElementById('stat-discounts').textContent = fmt(s.total_discounts);
+    document.getElementById('stat-costs').textContent = fmt(s.total_costs);
+    const profitEl = document.getElementById('stat-profit');
+    const profit = parseFloat(s.total_profit) || 0;
+    profitEl.textContent = fmt(profit);
+    profitEl.className = 'stat-value ' + (profit >= 0 ? 'positive' : 'negative');
+    document.getElementById('stat-margin').textContent = fmtPct(s.avg_margin);
+    document.getElementById('stat-low-margin').textContent = data.low_margin_count || 0;
+    document.getElementById('stat-missing-cogs').textContent = data.missing_cogs_count || 0;
+
+    // Alert bar
+    const alertCon = document.getElementById('alert-container');
+    if (data.low_margin_count > 0) {
+      alertCon.innerHTML = '<div class="alert-bar danger">⚠ You may have profit leakage: <strong>' + data.low_margin_count + ' low-margin order' + (data.low_margin_count > 1 ? 's' : '') + '</strong> this period. <a href="/app/orders">Review now →</a></div>';
+    } else if (data.missing_cogs_count > 0) {
+      alertCon.innerHTML = '<div class="alert-bar">⚠ <strong>' + data.missing_cogs_count + ' order' + (data.missing_cogs_count > 1 ? 's' : '') + '</strong> have missing product costs — margin estimates may be incomplete. <a href="/app/products">Fix now →</a></div>';
+    } else {
+      alertCon.innerHTML = '';
+    }
+
+    const rows = data.top_low_margin_orders || [];
+    const tbody = document.getElementById('low-margin-rows');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No orders in this period.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(o => {
+      const margin = parseFloat(o.margin_percent);
+      const marginClass = margin < 0 ? 'negative' : margin < 15 ? 'warning' : 'positive';
+      const confidence = o.confidence_status || 'complete';
+      const badgeClass = o.low_margin ? 'badge-danger' : 'badge-success';
+      return '<tr>' +
+        '<td><a href="/app/orders/' + o.order_id + '">' + (o.order_name || o.order_id) + '</a></td>' +
+        '<td class="text-muted">' + (o.processed_at ? new Date(o.processed_at).toLocaleDateString('en-GB') : '—') + '</td>' +
+        '<td>' + fmt(o.net_revenue) + '</td>' +
+        '<td class="text-right" style="color:' + (parseFloat(o.net_profit) < 0 ? '#d72c0d' : '#008060') + '">' + fmt(o.net_profit) + '</td>' +
+        '<td class="text-right"><span class="' + marginClass + '">' + fmtPct(o.margin_percent) + '</span></td>' +
+        '<td><span class="badge ' + badgeClass + '">' + (o.low_margin ? 'Low margin' : 'OK') + '</span>' +
+        (confidence !== 'complete' ? ' <span class="badge badge-warning">' + confidenceLabel(confidence) + '</span>' : '') + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function confidenceLabel(s) {
+    const map = { estimated: 'Estimated', missing_cogs: 'Missing costs', missing_cost_settings: 'No cost rules' };
+    return map[s] || s;
+  }
+
+  document.getElementById('range-select').addEventListener('change', function() {
+    currentRange = this.value;
+    fetchDashboard(currentRange);
+  });
+
+  window.addEventListener('DOMContentLoaded', () => fetchDashboard(currentRange));
+</script>
+` }) %>

@@ -1,0 +1,142 @@
+<%- include('layout', { body: `
+<div class="page">
+  <div class="page-header">
+    <h1 id="order-title">Order Detail</h1>
+    <a href="/app/orders" class="btn btn-secondary btn-sm">← Back to orders</a>
+  </div>
+
+  <div id="confidence-warning"></div>
+
+  <div class="stat-grid" id="order-stats">
+    <div class="stat-card"><div class="stat-label">Gross Revenue</div><div class="stat-value" id="stat-gross">—</div></div>
+    <div class="stat-card"><div class="stat-label">Discounts</div><div class="stat-value warning" id="stat-discount">—</div></div>
+    <div class="stat-card"><div class="stat-label">Net Revenue</div><div class="stat-value" id="stat-net">—</div></div>
+    <div class="stat-card"><div class="stat-label">Total COGS</div><div class="stat-value" id="stat-cogs">—</div></div>
+    <div class="stat-card"><div class="stat-label">Other Costs</div><div class="stat-value" id="stat-other">—</div></div>
+    <div class="stat-card"><div class="stat-label">Net Profit</div><div class="stat-value" id="stat-profit">—</div></div>
+    <div class="stat-card"><div class="stat-label">Margin</div><div class="stat-value" id="stat-margin">—</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Line Items</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Product / Variant</th>
+          <th>SKU</th>
+          <th>Qty</th>
+          <th class="text-right">Revenue</th>
+          <th class="text-right">Discounts</th>
+          <th class="text-right">COGS</th>
+          <th class="text-right">Other Costs</th>
+          <th class="text-right">Net Profit</th>
+          <th class="text-right">Margin</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="lines-tbody">
+        <tr><td colspan="10" class="loading">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card" id="cost-rules-card" style="display:none">
+    <div class="card-title">Applied Cost Rules</div>
+    <div id="cost-rules-list"></div>
+  </div>
+</div>
+
+<script>
+  const orderId = window.location.pathname.split('/').pop();
+
+  async function fetchOrder() {
+    try {
+      const token = await getSessionToken();
+      const res = await fetch('/api/orders/' + orderId, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await res.json();
+      renderOrder(data);
+    } catch(e) {
+      document.getElementById('lines-tbody').innerHTML = '<tr><td colspan="10" style="color:#d72c0d;padding:20px">Failed to load order.</td></tr>';
+    }
+  }
+
+  function fmt(n) { return '£' + (parseFloat(n) || 0).toFixed(2); }
+  function fmtPct(n) { return n == null ? '—' : parseFloat(n).toFixed(1) + '%'; }
+
+  function renderOrder(data) {
+    const o = data.order;
+    if (!o) return;
+
+    document.getElementById('order-title').textContent = o.order_name || 'Order #' + o.order_id;
+    document.getElementById('stat-gross').textContent = fmt(o.gross_revenue);
+    document.getElementById('stat-discount').textContent = fmt(o.discount_total);
+    document.getElementById('stat-net').textContent = fmt(o.net_revenue);
+    document.getElementById('stat-cogs').textContent = fmt(o.cogs_total);
+    document.getElementById('stat-other').textContent = fmt(o.other_costs_total);
+
+    const profit = parseFloat(o.net_profit);
+    const profitEl = document.getElementById('stat-profit');
+    profitEl.textContent = fmt(profit);
+    profitEl.className = 'stat-value ' + (profit < 0 ? 'negative' : 'positive');
+
+    const margin = parseFloat(o.margin_percent);
+    const marginEl = document.getElementById('stat-margin');
+    marginEl.textContent = fmtPct(o.margin_percent);
+    marginEl.className = 'stat-value ' + (margin < 0 ? 'negative' : margin < 15 ? 'warning' : 'positive');
+
+    // Confidence warning
+    const conf = o.confidence_status;
+    const warnEl = document.getElementById('confidence-warning');
+    if (conf && conf !== 'complete') {
+      const messages = {
+        estimated: 'Margin estimate incomplete — some cost rules may not be configured.',
+        missing_cogs: 'Missing product costs detected. Net profit may be understated. <a href="/app/products">Fix product costs →</a>',
+        missing_cost_settings: 'No cost rules configured — only COGS are included in this calculation. <a href="/app/costs">Set up cost rules →</a>'
+      };
+      warnEl.innerHTML = '<div class="alert-bar danger">⚠ ' + (messages[conf] || conf) + '</div>';
+    }
+
+    // Lines
+    const lines = data.lines || [];
+    const tbody = document.getElementById('lines-tbody');
+    if (!lines.length) {
+      tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No line items.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = lines.map(l => {
+      const lprofit = parseFloat(l.net_profit);
+      const lmargin = parseFloat(l.margin_percent);
+      return '<tr>' +
+        '<td><strong>' + (l.title || '—') + '</strong></td>' +
+        '<td class="text-muted">' + (l.sku || '—') + '</td>' +
+        '<td>' + l.quantity + '</td>' +
+        '<td class="text-right">' + fmt(l.gross_line_revenue) + '</td>' +
+        '<td class="text-right text-muted">' + fmt(l.discount_total) + '</td>' +
+        '<td class="text-right">' + (l.missing_cogs ? '<span class="badge badge-warning">Missing</span>' : fmt(l.cogs_total)) + '</td>' +
+        '<td class="text-right">' + fmt(l.custom_costs_total) + '</td>' +
+        '<td class="text-right" style="color:' + (lprofit < 0 ? '#d72c0d' : '#008060') + '">' + fmt(l.net_profit) + '</td>' +
+        '<td class="text-right">' + fmtPct(l.margin_percent) + '</td>' +
+        '<td>' + (l.missing_cogs ? '<span class="badge badge-danger">Missing costs</span>' : '<span class="badge badge-success">OK</span>') + '</td>' +
+        '</tr>';
+    }).join('');
+
+    // Applied cost rules from calculation_json
+    try {
+      const calcJson = typeof o.calculation_json === 'string' ? JSON.parse(o.calculation_json) : (o.calculation_json || {});
+      const rules = calcJson.applied_cost_rules || [];
+      if (rules.length > 0) {
+        document.getElementById('cost-rules-card').style.display = '';
+        document.getElementById('cost-rules-list').innerHTML = rules.map(r =>
+          '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f2f3">' +
+          '<span>' + r.name + '</span><span>' + fmt(r.cost) + '</span></div>'
+        ).join('');
+      }
+    } catch {}
+  }
+
+  window.addEventListener('DOMContentLoaded', fetchOrder);
+</script>
+` }) %>

@@ -1,0 +1,103 @@
+<%- include('layout', { body: `
+<div class="page">
+  <div class="page-header">
+    <h1>Orders</h1>
+    <div class="flex gap-2 items-center">
+      <select class="form-input" id="range-select" style="width:auto">
+        <option value="7d">Last 7 days</option>
+        <option value="30d" selected>Last 30 days</option>
+        <option value="90d">Last 90 days</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="plan-notice"></div>
+
+  <div class="card" style="padding:0; overflow:hidden">
+    <table>
+      <thead>
+        <tr>
+          <th>Order</th>
+          <th>Date</th>
+          <th class="text-right">Revenue</th>
+          <th class="text-right">Discounts</th>
+          <th class="text-right">Net Profit</th>
+          <th class="text-right">Margin</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="orders-tbody">
+        <tr><td colspan="7" class="loading">Loading...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div id="pagination" style="margin-top:12px"></div>
+</div>
+
+<script>
+  let currentRange = '30d';
+  let currentPage = 1;
+
+  async function fetchOrders(range, page) {
+    try {
+      const token = await getSessionToken();
+      const res = await fetch('/api/orders?range=' + range + '&page=' + page, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      const data = await res.json();
+      renderOrders(data);
+    } catch(e) {
+      document.getElementById('orders-tbody').innerHTML = '<tr><td colspan="7" style="color:#d72c0d;padding:20px">Failed to load orders.</td></tr>';
+    }
+  }
+
+  function fmt(n) { return '£' + (parseFloat(n) || 0).toFixed(2).replace(/\\B(?=(\\d{3})+(?!\\d))/g, ','); }
+  function fmtPct(n) { return n == null ? '—' : parseFloat(n).toFixed(1) + '%'; }
+
+  function renderOrders(data) {
+    if (!data.is_pro) {
+      document.getElementById('plan-notice').innerHTML = '<div class="upgrade-banner"><strong>Free Plan:</strong> Showing last 50 orders. <a href="/app/billing">Upgrade to Pro</a> for full history.</div>';
+    }
+
+    const orders = data.orders || [];
+    const tbody = document.getElementById('orders-tbody');
+    if (!orders.length) {
+      tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><p>No orders found for this period.</p></div></td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = orders.map(o => {
+      const profit = parseFloat(o.net_profit);
+      const margin = parseFloat(o.margin_percent);
+      const profitColor = profit < 0 ? '#d72c0d' : '#008060';
+      const marginColor = margin < 0 ? '#d72c0d' : margin < 15 ? '#b98900' : '#008060';
+      const confidence = o.confidence_status || 'complete';
+      return '<tr>' +
+        '<td><a href="/app/orders/' + o.order_id + '">' + (o.order_name || '#' + o.order_id) + '</a></td>' +
+        '<td class="text-muted">' + (o.processed_at ? new Date(o.processed_at).toLocaleDateString('en-GB') : '—') + '</td>' +
+        '<td class="text-right">' + fmt(o.gross_revenue) + '</td>' +
+        '<td class="text-right text-muted">' + fmt(o.discount_total) + '</td>' +
+        '<td class="text-right" style="color:' + profitColor + '">' + fmt(o.net_profit) + '</td>' +
+        '<td class="text-right" style="color:' + marginColor + '">' + fmtPct(o.margin_percent) + '</td>' +
+        '<td>' +
+          (o.low_margin ? '<span class="badge badge-danger">Low margin</span> ' : '<span class="badge badge-success">OK</span> ') +
+          (confidence !== 'complete' ? '<span class="badge badge-warning">' + confidenceLabel(confidence) + '</span>' : '') +
+        '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function confidenceLabel(s) {
+    return { estimated: 'Estimated', missing_cogs: 'Missing costs', missing_cost_settings: 'No cost rules' }[s] || s;
+  }
+
+  document.getElementById('range-select').addEventListener('change', function() {
+    currentRange = this.value;
+    currentPage = 1;
+    fetchOrders(currentRange, currentPage);
+  });
+
+  window.addEventListener('DOMContentLoaded', () => fetchOrders(currentRange, currentPage));
+</script>
+` }) %>

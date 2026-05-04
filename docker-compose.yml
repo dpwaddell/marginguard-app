@@ -1,0 +1,29 @@
+services:
+  marginguard-app:
+    build: .
+    ports:
+      - "3015:3000"
+    env_file: .env
+    depends_on:
+      - marginguard-db
+    restart: unless-stopped
+    networks:
+      - default
+      - sampleguard_sampleguard_net
+
+  marginguard-db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: marginguard
+      POSTGRES_PASSWORD: marginguard
+      POSTGRES_DB: marginguard
+    volumes:
+      - marginguard_pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  marginguard_pgdata:
+
+networks:
+  sampleguard_sampleguard_net:
+    external: true

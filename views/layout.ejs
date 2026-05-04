@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= typeof pageTitle !== 'undefined' ? pageTitle + ' — MarginGuard' : 'MarginGuard' %></title>
+  <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" crossorigin="anonymous"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f6f6f7; color: #202223; font-size: 14px; }
+    .page { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+    .page-header h1 { font-size: 20px; font-weight: 600; }
+    .card { background: #fff; border-radius: 8px; border: 1px solid #e1e3e5; padding: 20px; margin-bottom: 16px; }
+    .card-title { font-size: 14px; font-weight: 600; color: #6d7175; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 12px; }
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .stat-card { background: #fff; border-radius: 8px; border: 1px solid #e1e3e5; padding: 16px; }
+    .stat-label { font-size: 12px; color: #6d7175; margin-bottom: 4px; }
+    .stat-value { font-size: 22px; font-weight: 700; }
+    .stat-value.positive { color: #008060; }
+    .stat-value.negative { color: #d72c0d; }
+    .stat-value.warning { color: #b98900; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge-success { background: #d3f0e4; color: #006340; }
+    .badge-warning { background: #ffd79d; color: #7a4400; }
+    .badge-danger { background: #ffd2d2; color: #8c0000; }
+    .badge-info { background: #e0edff; color: #00309c; }
+    .badge-grey { background: #f1f2f3; color: #6d7175; }
+    .badge-pro { background: #6d3fc7; color: #fff; }
+    .alert-bar { background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+    .alert-bar.danger { background: #ffd2d2; border-color: #d72c0d; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; font-size: 12px; font-weight: 600; color: #6d7175; border-bottom: 1px solid #e1e3e5; padding: 8px 12px; }
+    td { padding: 10px 12px; border-bottom: 1px solid #f1f2f3; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f9fafb; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; border: 1px solid transparent; font-size: 14px; font-weight: 500; cursor: pointer; text-decoration: none; transition: background 0.15s; }
+    .btn-primary { background: #008060; color: #fff; border-color: #008060; }
+    .btn-primary:hover { background: #006347; }
+    .btn-secondary { background: #fff; color: #202223; border-color: #c9cccf; }
+    .btn-secondary:hover { background: #f6f6f7; }
+    .btn-danger { background: #d72c0d; color: #fff; border-color: #d72c0d; }
+    .btn-danger:hover { background: #bc2200; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+    .form-input { width: 100%; padding: 8px 12px; border: 1px solid #c9cccf; border-radius: 6px; font-size: 14px; }
+    .form-input:focus { outline: none; border-color: #008060; box-shadow: 0 0 0 2px rgba(0,128,96,0.15); }
+    .form-hint { font-size: 12px; color: #6d7175; margin-top: 4px; }
+    .nav { display: flex; gap: 4px; margin-bottom: 20px; background: #fff; border-radius: 8px; border: 1px solid #e1e3e5; padding: 6px; }
+    .nav-link { padding: 6px 14px; border-radius: 6px; text-decoration: none; color: #6d7175; font-size: 13px; font-weight: 500; }
+    .nav-link:hover { background: #f6f6f7; color: #202223; }
+    .nav-link.active { background: #f6f6f7; color: #202223; }
+    .upgrade-banner { background: #f4f0ff; border: 1px solid #6d3fc7; border-radius: 8px; padding: 16px; text-align: center; margin: 12px 0; }
+    .upgrade-banner strong { color: #6d3fc7; }
+    .confidence-complete { color: #008060; }
+    .confidence-estimated { color: #b98900; }
+    .confidence-missing_cogs { color: #d72c0d; }
+    .confidence-missing_cost_settings { color: #d72c0d; }
+    .text-right { text-align: right; }
+    .text-muted { color: #6d7175; }
+    .flex { display: flex; }
+    .items-center { align-items: center; }
+    .gap-2 { gap: 8px; }
+    .mt-2 { margin-top: 8px; }
+    .mt-4 { margin-top: 16px; }
+    select.form-input { cursor: pointer; }
+    .loading { text-align: center; padding: 40px; color: #6d7175; }
+    .empty-state { text-align: center; padding: 40px 20px; }
+    .empty-state p { color: #6d7175; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div id="app-root">
+    <%- body %>
+  </div>
+  <script>
+    window.__MARGINGUARD__ = {
+      apiKey: '<%= apiKey %>',
+      shop: '<%= shop %>',
+      appUrl: '<%= appUrl %>'
+    };
+    var appBridgeConfig = {
+      apiKey: "<%= apiKey %>",
+      host: "<%= host %>",
+      forceRedirect: true
+    };
+    if (window.shopify) {
+      // App Bridge 4.x - config is auto-detected
+    } else if (window.__shopify_app_bridge_init) {
+      window.__shopify_app_bridge_init(appBridgeConfig);
+    }
+  </script>
+  <script src="/app.js"></script>
+</body>
+</html>

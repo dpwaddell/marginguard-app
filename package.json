@@ -1,0 +1,24 @@
+{
+  "name": "marginguard",
+  "version": "1.0.0",
+  "description": "MarginGuard — Alert-first profitability monitoring for Shopify",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "NODE_ENV=development node server.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "cookie-parser": "^1.4.6",
+    "crypto": "^1.0.1",
+    "dotenv": "^16.4.5",
+    "ejs": "^3.1.10",
+    "express": "^4.19.2",
+    "pg": "^8.12.0",
+    "jose": "^5.6.3",
+    "nodemailer": "^6.9.14"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
