@@ -313,6 +313,23 @@ router.get('/billing/status', auth, async (req, res) => {
   res.json({ plan: req.shopRecord.plan_name || 'Free' });
 });
 
+// --- Onboarding status ---
+router.get('/onboarding/status', auth, async (req, res) => {
+  try {
+    const [p, r, o] = await Promise.all([
+      query('SELECT COUNT(*) FROM variant_costs WHERE shop=$1', [req.shop]),
+      query('SELECT COUNT(*) FROM cost_rules WHERE shop=$1', [req.shop]),
+      query('SELECT COUNT(*) FROM order_margins WHERE shop=$1', [req.shop]),
+    ]);
+    const has_products = parseInt(p.rows[0].count) > 0;
+    const has_cost_rules = parseInt(r.rows[0].count) > 0;
+    const has_orders = parseInt(o.rows[0].count) > 0;
+    res.json({ has_products, has_cost_rules, has_orders, completed: has_products && has_cost_rules && has_orders });
+  } catch(err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 function parseDays(range) {
   const map = { '1d': 1, '7d': 7, '30d': 30, '90d': 90 };
   return map[range] || 7;
