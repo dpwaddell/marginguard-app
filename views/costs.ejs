@@ -1,7 +1,10 @@
 <%- include('layout', { body: `
 <div class="page">
   <div class="page-header">
-    <h1>Cost Rules</h1>
+    <div>
+      <h1>Cost Rules</h1>
+      <div class="page-subtitle">Define cost rules for payment processing, shipping, and fulfilment</div>
+    </div>
     <button class="btn btn-primary btn-sm" id="add-rule-btn">+ Add Rule</button>
   </div>
 
@@ -86,9 +89,10 @@
 
   async function fetchRules() {
     try {
-      const token = await getSessionToken();
       var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
-      const res = await fetch('/api/cost-rules?shop=' + shop, { headers: { 'Authorization': 'Bearer ' + token } });
+      var headers = {};
+      try { const token = await getSessionToken(); headers['Authorization'] = 'Bearer ' + token; } catch(e) {}
+      const res = await fetch('/api/cost-rules?shop=' + shop, { headers });
       const data = await res.json();
       rules = data.rules || [];
       isPro = data.is_pro;
@@ -145,9 +149,10 @@
   async function deleteRule(id) {
     if (!confirm('Delete this cost rule?')) return;
     try {
-      const token = await getSessionToken();
       var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
-      const res = await fetch('/api/cost-rules/' + id + '?shop=' + shop, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+      var headers = {};
+      try { const token = await getSessionToken(); headers['Authorization'] = 'Bearer ' + token; } catch(e) {}
+      const res = await fetch('/api/cost-rules/' + id + '?shop=' + shop, { method: 'DELETE', headers });
       const data = await res.json();
       if (data.error) { alert(data.error); return; }
       fetchRules();
@@ -172,13 +177,14 @@
     };
 
     try {
-      const token = await getSessionToken();
       var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
+      var headers = { 'Content-Type': 'application/json' };
+      try { const token = await getSessionToken(); headers['Authorization'] = 'Bearer ' + token; } catch(e) {}
       const url = (id ? '/api/cost-rules/' + id : '/api/cost-rules') + '?shop=' + shop;
       const method = id ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
-        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload)
       });
       const data = await res.json();

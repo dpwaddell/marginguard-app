@@ -1,7 +1,10 @@
 <%- include('layout', { body: `
 <div class="page">
   <div class="page-header">
-    <h1>Product Costs</h1>
+    <div>
+      <h1>Product Costs</h1>
+      <div class="page-subtitle">Manage product costs to ensure accurate margin calculations</div>
+    </div>
     <div class="flex gap-2">
       <button class="btn btn-secondary btn-sm" id="sync-btn">Sync from Shopify</button>
     </div>
@@ -35,9 +38,10 @@
 <script>
   async function fetchProducts() {
     try {
-      const token = await getSessionToken();
       var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
-      const res = await fetch('/api/products?shop=' + shop, { headers: { 'Authorization': 'Bearer ' + token } });
+      var headers = {};
+      try { const token = await getSessionToken(); headers['Authorization'] = 'Bearer ' + token; } catch(e) {}
+      const res = await fetch('/api/products?shop=' + shop, { headers });
       const data = await res.json();
       renderProducts(data.products || []);
     } catch(e) {
@@ -94,11 +98,12 @@
 
   async function saveCost(variantId, costStr) {
     try {
-      const token = await getSessionToken();
       var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
+      var headers = { 'Content-Type': 'application/json' };
+      try { const token = await getSessionToken(); headers['Authorization'] = 'Bearer ' + token; } catch(e) {}
       const res = await fetch('/api/products/' + variantId + '/cost-override?shop=' + shop, {
         method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ manual_unit_cost: costStr === '' ? null : parseFloat(costStr) })
       });
       const data = await res.json();
@@ -124,9 +129,10 @@
     const notice = document.getElementById('sync-notice');
     notice.innerHTML = '<div class="alert-bar">Syncing products from Shopify...</div>';
     try {
-      const token = await getSessionToken();
       var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
-      await fetch('/api/sync/products?shop=' + shop, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } });
+      var headers = {};
+      try { const token = await getSessionToken(); headers['Authorization'] = 'Bearer ' + token; } catch(e) {}
+      await fetch('/api/sync/products?shop=' + shop, { method: 'POST', headers });
       notice.innerHTML = '<div class="alert-bar">Sync started. Refresh in a moment to see updated data.</div>';
       setTimeout(() => { notice.innerHTML = ''; fetchProducts(); }, 4000);
     } catch(e) {

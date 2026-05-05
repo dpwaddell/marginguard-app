@@ -1,20 +1,23 @@
 <%- include('layout', { body: `
 <div class="page">
   <div class="page-header">
-    <h1 id="order-title">Order Detail</h1>
+    <div>
+      <h1 id="order-title">Order Detail</h1>
+      <div class="page-subtitle" id="order-subtitle"></div>
+    </div>
     <a href="/app/orders" class="btn btn-secondary btn-sm">← Back to orders</a>
   </div>
 
   <div id="confidence-warning"></div>
 
   <div class="stat-grid" id="order-stats">
-    <div class="stat-card"><div class="stat-label">Gross Revenue</div><div class="stat-value" id="stat-gross">—</div></div>
-    <div class="stat-card"><div class="stat-label">Discounts</div><div class="stat-value warning" id="stat-discount">—</div></div>
-    <div class="stat-card"><div class="stat-label">Net Revenue</div><div class="stat-value" id="stat-net">—</div></div>
-    <div class="stat-card"><div class="stat-label">Total COGS</div><div class="stat-value" id="stat-cogs">—</div></div>
-    <div class="stat-card"><div class="stat-label">Other Costs</div><div class="stat-value" id="stat-other">—</div></div>
-    <div class="stat-card"><div class="stat-label">Net Profit</div><div class="stat-value" id="stat-profit">—</div></div>
-    <div class="stat-card"><div class="stat-label">Margin</div><div class="stat-value" id="stat-margin">—</div></div>
+    <div class="stat-card accent-blue"><div class="stat-label">Gross Revenue</div><div class="stat-value" id="stat-gross">—</div></div>
+    <div class="stat-card accent-amber"><div class="stat-label">Discounts</div><div class="stat-value warning" id="stat-discount">—</div></div>
+    <div class="stat-card accent-blue"><div class="stat-label">Net Revenue</div><div class="stat-value" id="stat-net">—</div></div>
+    <div class="stat-card accent-grey"><div class="stat-label">Total COGS</div><div class="stat-value" id="stat-cogs">—</div></div>
+    <div class="stat-card accent-grey"><div class="stat-label">Other Costs</div><div class="stat-value" id="stat-other">—</div></div>
+    <div class="stat-card accent-green"><div class="stat-label">Net Profit</div><div class="stat-value" id="stat-profit">—</div></div>
+    <div class="stat-card accent-green"><div class="stat-label">Margin</div><div class="stat-value" id="stat-margin">—</div></div>
   </div>
 
   <div class="card">
@@ -51,11 +54,10 @@
 
   async function fetchOrder() {
     try {
-      const token = await getSessionToken();
       var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
-      const res = await fetch('/api/orders/' + orderId + '?shop=' + shop, {
-        headers: { 'Authorization': 'Bearer ' + token }
-      });
+      var headers = {};
+      try { const token = await getSessionToken(); headers['Authorization'] = 'Bearer ' + token; } catch(e) {}
+      const res = await fetch('/api/orders/' + orderId + '?shop=' + shop, { headers });
       const data = await res.json();
       renderOrder(data);
     } catch(e) {
@@ -71,6 +73,8 @@
     if (!o) return;
 
     document.getElementById('order-title').textContent = o.order_name || 'Order #' + o.order_id;
+    var subEl = document.getElementById('order-subtitle');
+    if (subEl && o.processed_at) subEl.textContent = new Date(o.processed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
     document.getElementById('stat-gross').textContent = fmt(o.gross_revenue);
     document.getElementById('stat-discount').textContent = fmt(o.discount_total);
     document.getElementById('stat-net').textContent = fmt(o.net_revenue);
@@ -118,7 +122,7 @@
         '<td class="text-right text-muted">' + fmt(l.discount_total) + '</td>' +
         '<td class="text-right">' + (l.missing_cogs ? '<span class="badge badge-warning">Missing</span>' : fmt(l.cogs_total)) + '</td>' +
         '<td class="text-right">' + fmt(l.custom_costs_total) + '</td>' +
-        '<td class="text-right" style="color:' + (lprofit < 0 ? '#d72c0d' : '#008060') + '">' + fmt(l.net_profit) + '</td>' +
+        '<td class="text-right ' + (lprofit < 0 ? 'text-red' : 'text-green') + '">' + fmt(l.net_profit) + '</td>' +
         '<td class="text-right">' + fmtPct(l.margin_percent) + '</td>' +
         '<td>' + (l.missing_cogs ? '<span class="badge badge-danger">Missing costs</span>' : '<span class="badge badge-success">OK</span>') + '</td>' +
         '</tr>';

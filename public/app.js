@@ -2,15 +2,22 @@
   'use strict';
 
   // App Bridge session token retrieval (App Bridge 4.x)
+  function withTimeout(promise, ms) {
+    return Promise.race([
+      promise,
+      new Promise(function(_, reject) { setTimeout(function() { reject(new Error('idToken timeout')); }, ms); }),
+    ]);
+  }
+
   window.getSessionToken = async function () {
     if (window.shopify && typeof window.shopify.idToken === 'function') {
-      return await window.shopify.idToken();
+      return await withTimeout(window.shopify.idToken(), 2000);
     }
     // Wait up to 3 seconds for App Bridge to initialise
     for (var i = 0; i < 30; i++) {
       await new Promise(function(r) { setTimeout(r, 100); });
       if (window.shopify && typeof window.shopify.idToken === 'function') {
-        return await window.shopify.idToken();
+        return await withTimeout(window.shopify.idToken(), 2000);
       }
     }
     throw new Error('App Bridge not available after timeout');
@@ -62,8 +69,33 @@
   // Expose for use by inline scripts (e.g. clickable table rows)
   window.__appNavigate = navigateTo;
 
+  async function initNavPlanBadge() {
+    var el = document.getElementById('nav-plan-badge');
+    if (!el) return;
+    try {
+      var shop = getNavParams().shop;
+      var headers = {};
+      try { headers['Authorization'] = 'Bearer ' + await withTimeout(window.shopify && window.shopify.idToken ? window.shopify.idToken() : Promise.reject(), 2000); } catch(e) {}
+      var res = await fetch('/api/billing/status?shop=' + shop, { headers });
+      if (!res.ok) { el.className = 'nav-plan-badge free'; el.textContent = 'Free'; return; }
+      var data = await res.json();
+      if (data.plan === 'Pro') {
+        el.className = 'nav-plan-badge pro';
+        el.textContent = 'Pro';
+      } else {
+        el.className = 'nav-plan-badge free';
+        el.textContent = 'Free';
+      }
+    } catch(e) {
+      el.className = 'nav-plan-badge free';
+      el.textContent = 'Free';
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     var currentPath = window.location.pathname;
+
+    initNavPlanBadge();
 
     // Nav active state (data-href matching)
     document.querySelectorAll('.nav-link[data-href]').forEach(function (link) {

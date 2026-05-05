@@ -3,10 +3,10 @@
   <div class="page-header">
     <div>
       <h1>Dashboard</h1>
-      <div style="font-size:13px;color:#8c9196;margin-top:2px">Track profitability and identify margin risks</div>
+      <div class="page-subtitle">Track profitability and identify margin risks</div>
     </div>
     <div class="flex gap-2 items-center">
-      <select class="form-input" id="range-select" style="width:auto">
+      <select class="form-input" id="range-select" style="width:auto;min-width:130px">
         <option value="1d">Today</option>
         <option value="7d" selected>Last 7 days</option>
         <option value="30d">Last 30 days</option>
@@ -17,20 +17,45 @@
 
   <div id="onboarding-container"></div>
   <div id="alert-container"></div>
-  <div id="leakage-container"></div>
 
-  <div style="height:1px;background:#e1e3e5;margin:4px 0 16px"></div>
-
-  <div class="section-label">Performance overview</div>
+  <div class="section-label" style="margin-top:4px">Performance overview</div>
   <div class="stat-grid" id="summary-stats">
-    <div class="stat-card accent-blue"><div class="stat-label">Total Revenue</div><div class="stat-value" id="stat-revenue">—</div></div>
-    <div class="stat-card accent-amber"><div class="stat-label">Discounts Given</div><div class="stat-value warning" id="stat-discounts">—</div></div>
-    <div class="stat-card accent-grey"><div class="stat-label">Total Costs</div><div class="stat-value" id="stat-costs">—</div></div>
-    <div class="stat-card accent-green"><div class="stat-label">Net Profit</div><div class="stat-value" id="stat-profit">—</div></div>
-    <div class="stat-card accent-green"><div class="stat-label">Avg Margin</div><div class="stat-value" id="stat-margin">—</div></div>
-    <div class="stat-card accent-amber"><div class="stat-label">Low-Margin Orders</div><div class="stat-value warning" id="stat-low-margin">—</div></div>
-    <div class="stat-card accent-red"><div class="stat-label">Missing Product Costs</div><div class="stat-value warning" id="stat-missing-cogs">—</div></div>
+    <div class="stat-card accent-blue">
+      <div class="stat-label">Total Revenue</div>
+      <div class="stat-value" id="stat-revenue">—</div>
+      <div class="stat-trend" id="trend-revenue"></div>
+    </div>
+    <div class="stat-card accent-amber">
+      <div class="stat-label">Discounts Given</div>
+      <div class="stat-value warning" id="stat-discounts">—</div>
+      <div class="stat-trend" id="trend-discounts"></div>
+    </div>
+    <div class="stat-card accent-grey">
+      <div class="stat-label">Total Costs</div>
+      <div class="stat-value" id="stat-costs">—</div>
+      <div class="stat-trend" id="trend-costs"></div>
+    </div>
+    <div class="stat-card accent-green">
+      <div class="stat-label">Net Profit</div>
+      <div class="stat-value" id="stat-profit">—</div>
+      <div class="stat-trend" id="trend-profit"></div>
+    </div>
+    <div class="stat-card accent-green">
+      <div class="stat-label">Avg Margin</div>
+      <div class="stat-value" id="stat-margin">—</div>
+      <div class="stat-trend" id="trend-margin"></div>
+    </div>
+    <div class="stat-card accent-amber">
+      <div class="stat-label">Low-Margin Orders</div>
+      <div class="stat-value warning" id="stat-low-margin">—</div>
+    </div>
+    <div class="stat-card accent-red">
+      <div class="stat-label">Missing Product Costs</div>
+      <div class="stat-value" id="stat-missing-cogs">—</div>
+    </div>
   </div>
+
+  <div id="last-updated-ts" style="font-size:11px;color:#9ca3af;margin-bottom:16px"></div>
 
   <div class="card">
     <div class="card-header">
@@ -70,8 +95,7 @@
           <th>Cost data</th>
         </tr>
       </thead>
-      <tbody id="top-products-tbody">
-      </tbody>
+      <tbody id="top-products-tbody"></tbody>
     </table>
   </div>
 
@@ -82,92 +106,124 @@
 </div>
 
 <script>
-  const cfg = window.__MARGINGUARD__;
+  const appBase = '${appUrl}';
   let currentRange = '7d';
+
+  async function authHeaders() {
+    var headers = {};
+    try { headers['Authorization'] = 'Bearer ' + await getSessionToken(); } catch(e) {}
+    return headers;
+  }
+
+  function shopParam() {
+    return (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
+  }
 
   async function fetchDashboard(range) {
     try {
-      const token = await getSessionToken();
-      var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
+      const shop = shopParam();
+      const headers = await authHeaders();
       const [res, prodRes] = await Promise.all([
-        fetch('/api/dashboard?range=' + range + '&shop=' + shop, { headers: { 'Authorization': 'Bearer ' + token } }),
-        fetch('/api/dashboard/products?range=' + range + '&shop=' + shop, { headers: { 'Authorization': 'Bearer ' + token } }),
+        fetch(appBase + '/api/dashboard?range=' + range + '&shop=' + shop, { headers }),
+        fetch(appBase + '/api/dashboard/products?range=' + range + '&shop=' + shop, { headers }),
       ]);
+      if (!res.ok) {
+        document.getElementById('low-margin-rows').innerHTML = '<tr><td colspan="6" style="color:#dc2626;padding:20px">Failed to load dashboard data.</td></tr>';
+        return;
+      }
       const data = await res.json();
       const prodData = prodRes.ok ? await prodRes.json() : null;
       renderDashboard(data);
       if (prodData) renderTopProducts(prodData.products || []);
     } catch(e) {
-      document.getElementById('low-margin-rows').innerHTML = '<tr><td colspan="6" style="color:#d72c0d;padding:20px">Failed to load dashboard data.</td></tr>';
+      console.error('[Dashboard] fetch error:', e.message);
+      document.getElementById('low-margin-rows').innerHTML = '<tr><td colspan="6" style="color:#dc2626;padding:20px">Failed to load dashboard data.</td></tr>';
     }
   }
 
   function fmt(n) { return '£' + (parseFloat(n) || 0).toFixed(2).replace(/\\B(?=(\\d{3})+(?!\\d))/g, ','); }
   function fmtPct(n) { return n == null ? '—' : parseFloat(n).toFixed(1) + '%'; }
 
+  function renderTrend(curr, prev, elementId, lowerIsBetter) {
+    var el = document.getElementById(elementId);
+    if (!el) return;
+    var c = parseFloat(curr) || 0;
+    var p = parseFloat(prev) || 0;
+    if (p === 0) { el.innerHTML = ''; return; }
+    var pct = ((c - p) / Math.abs(p)) * 100;
+    var up = pct > 0.05;
+    var down = pct < -0.05;
+    if (!up && !down) { el.innerHTML = '<span class="trend-neutral">— flat vs prev period</span>'; return; }
+    var good = lowerIsBetter ? down : up;
+    var arrow = up ? '▲' : '▼';
+    var cls = up ? (good ? 'trend-up-good' : 'trend-up-bad') : (good ? 'trend-down-good' : 'trend-down-bad');
+    el.innerHTML = '<span class="' + cls + '">' + arrow + ' ' + Math.abs(pct).toFixed(1) + '%</span>';
+  }
+
   function renderDashboard(data) {
-    const s = data.summary || {};
+    var s = data.summary || {};
+    var p = data.prev_summary || {};
+
     document.getElementById('stat-revenue').textContent = fmt(s.total_revenue);
     document.getElementById('stat-discounts').textContent = fmt(s.total_discounts);
     document.getElementById('stat-costs').textContent = fmt(s.total_costs);
-    const profitEl = document.getElementById('stat-profit');
-    const profit = parseFloat(s.total_profit) || 0;
+    var profitEl = document.getElementById('stat-profit');
+    var profit = parseFloat(s.total_profit) || 0;
     profitEl.textContent = fmt(profit);
     profitEl.className = 'stat-value ' + (profit >= 0 ? 'positive' : 'negative');
     document.getElementById('stat-margin').textContent = fmtPct(s.avg_margin);
     document.getElementById('stat-low-margin').textContent = data.low_margin_count || 0;
-    document.getElementById('stat-missing-cogs').textContent = data.missing_cogs_count || 0;
+    var missingEl = document.getElementById('stat-missing-cogs');
+    missingEl.textContent = data.missing_cogs_count || 0;
+    missingEl.className = 'stat-value' + (data.missing_cogs_count > 0 ? ' warning' : ' positive');
 
-    // Risk count badge
-    const riskBadge = document.getElementById('risk-count-badge');
-    if (riskBadge && data.top_low_margin_orders) {
-      const n = data.top_low_margin_orders.length;
-      riskBadge.innerHTML = n > 0 ? '<span class="badge badge-danger">' + n + ' at risk</span>' : '';
+    renderTrend(s.total_revenue, p.total_revenue, 'trend-revenue', false);
+    renderTrend(s.total_discounts, p.total_discounts, 'trend-discounts', true);
+    renderTrend(s.total_costs, p.total_costs, 'trend-costs', true);
+    renderTrend(s.total_profit, p.total_profit, 'trend-profit', false);
+    renderTrend(s.avg_margin, p.avg_margin, 'trend-margin', false);
+
+    var tsEl = document.getElementById('last-updated-ts');
+    if (tsEl) tsEl.textContent = 'Last updated: ' + new Date().toLocaleTimeString('en-GB');
+
+    var riskRows = data.top_low_margin_orders || [];
+    var riskBadge = document.getElementById('risk-count-badge');
+    if (riskBadge) {
+      riskBadge.innerHTML = riskRows.length > 0
+        ? '<span class="badge badge-danger">' + riskRows.length + ' at risk</span>'
+        : '';
     }
 
-    // Alert bar
-    const alertCon = document.getElementById('alert-container');
+    var alertCon = document.getElementById('alert-container');
+    var alerts = [];
     if (data.low_margin_count > 0) {
-      alertCon.innerHTML = '<div class="alert-bar danger">⚠ <strong>' + data.low_margin_count + ' low-margin order' + (data.low_margin_count > 1 ? 's' : '') + '</strong> this period — review to identify profit leakage. <a href="/app/orders?sort=margin_asc">Review now →</a></div>';
-    } else if (data.missing_cogs_count > 0) {
-      alertCon.innerHTML = '<div class="alert-bar">⚠ <strong>' + data.missing_cogs_count + ' order' + (data.missing_cogs_count > 1 ? 's' : '') + '</strong> have missing product costs — margin estimates may be understated. <a href="/app/products">Fix now →</a></div>';
-    } else {
-      alertCon.innerHTML = '';
+      alerts.push('<div class="alert-bar danger"><span class="alert-icon">⚠</span><div><strong>' + data.low_margin_count + ' low-margin order' + (data.low_margin_count > 1 ? 's' : '') + '</strong> this period — review to identify profit leakage. <a href="/app/orders?sort=margin_asc">Review now →</a></div></div>');
     }
-
-    // Profit leakage estimate
-    const leakCon = document.getElementById('leakage-container');
-    if (data.missing_cogs_count > 0 && s.avg_margin) {
-      const avgMargin = parseFloat(s.avg_margin) / 100;
-      const revenuePerOrder = parseFloat(s.total_revenue) / Math.max(parseInt(s.order_count), 1);
-      const estimatedLeakage = data.missing_cogs_count * revenuePerOrder * avgMargin;
-      if (estimatedLeakage > 0) {
-        leakCon.innerHTML =
-          '<div class="alert-bar info" style="margin-bottom:14px">' +
-          '<div>' +
-          '<div style="font-size:13px;font-weight:600;margin-bottom:2px">💡 Estimated profit at risk from incomplete COGS</div>' +
-          '<div style="font-size:22px;font-weight:800;color:#2c6ecb">' + fmt(estimatedLeakage) + '</div>' +
-          '<div style="font-size:12px;color:#6d7175;margin-top:2px">Based on ' + data.missing_cogs_count + ' orders with missing costs × your average margin of ' + fmtPct(s.avg_margin) + '. <a href="/app/products">Add missing costs →</a></div>' +
-          '</div></div>';
-      } else {
-        leakCon.innerHTML = '';
+    if (data.missing_cogs_count > 0) {
+      var leakageNote = '';
+      if (s.avg_margin) {
+        var avgMargin = parseFloat(s.avg_margin) / 100;
+        var revenuePerOrder = parseFloat(s.total_revenue) / Math.max(parseInt(s.order_count), 1);
+        var estimatedLeakage = data.missing_cogs_count * revenuePerOrder * avgMargin;
+        if (estimatedLeakage > 0) {
+          leakageNote = ' Estimated profit at risk: <strong style="color:#2563eb">' + fmt(estimatedLeakage) + '</strong>.';
+        }
       }
-    } else {
-      leakCon.innerHTML = '';
+      alerts.push('<div class="alert-bar"><span class="alert-icon">⚠</span><div><strong>' + data.missing_cogs_count + ' order' + (data.missing_cogs_count > 1 ? 's' : '') + '</strong> have missing product costs — margin estimates may be understated.' + leakageNote + ' <a href="/app/products">Fix now →</a></div></div>');
     }
+    alertCon.innerHTML = alerts.join('');
 
-    const rows = data.top_low_margin_orders || [];
-    const tbody = document.getElementById('low-margin-rows');
-    if (!rows.length) {
+    var tbody = document.getElementById('low-margin-rows');
+    if (!riskRows.length) {
       tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><h3>No orders yet</h3><p>Orders will appear here after the first sync.</p></div></td></tr>';
       return;
     }
-    tbody.innerHTML = rows.map(o => {
-      const margin = parseFloat(o.margin_percent);
-      const marginClass = margin < 0 ? 'text-red' : margin < 15 ? 'text-amber' : 'text-green';
-      const profitClass = parseFloat(o.net_profit) < 0 ? 'text-red' : 'text-green';
-      const confidence = o.confidence_status || 'complete';
-      const badgeClass = o.low_margin ? 'badge-danger' : 'badge-success';
+    tbody.innerHTML = riskRows.map(function(o) {
+      var margin = parseFloat(o.margin_percent);
+      var marginClass = margin < 0 ? 'text-red' : margin < 15 ? 'text-amber' : 'text-green';
+      var profitClass = parseFloat(o.net_profit) < 0 ? 'text-red' : 'text-green';
+      var confidence = o.confidence_status || 'complete';
+      var badgeClass = o.low_margin ? 'badge-danger' : 'badge-success';
       return '<tr>' +
         '<td><a href="/app/orders/' + o.order_id + '">' + (o.order_name || o.order_id) + '</a></td>' +
         '<td class="text-muted">' + (o.processed_at ? new Date(o.processed_at).toLocaleDateString('en-GB') : '—') + '</td>' +
@@ -183,9 +239,9 @@
   function renderTopProducts(products) {
     if (!products.length) return;
     document.getElementById('top-products-card').style.display = '';
-    document.getElementById('top-products-tbody').innerHTML = products.map(p => {
-      const margin = parseFloat(p.avg_margin);
-      const marginClass = isNaN(margin) ? '' : margin < 0 ? 'text-red' : margin < 15 ? 'text-amber' : 'text-green';
+    document.getElementById('top-products-tbody').innerHTML = products.map(function(p) {
+      var margin = parseFloat(p.avg_margin);
+      var marginClass = isNaN(margin) ? '' : margin < 0 ? 'text-red' : margin < 15 ? 'text-amber' : 'text-green';
       return '<tr>' +
         '<td><strong>' + (p.product_title || '—') + '</strong></td>' +
         '<td class="text-muted">' + (p.variant_title || '—') + '</td>' +
@@ -199,79 +255,99 @@
   }
 
   function confidenceLabel(s) {
-    const map = { estimated: 'Estimated', missing_cogs: 'Missing costs', missing_cost_settings: 'No cost rules' };
+    var map = { estimated: 'Estimated', missing_cogs: 'Missing costs', missing_cost_settings: 'No cost rules' };
     return map[s] || s;
   }
 
   async function fetchOnboarding() {
     try {
-      const token = await getSessionToken();
-      var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
-      const res = await fetch('/api/onboarding/status?shop=' + shop, { headers: { 'Authorization': 'Bearer ' + token } });
-      const data = await res.json();
+      var shop = shopParam();
+      var headers = await authHeaders();
+      var res = await fetch(appBase + '/api/onboarding/status?shop=' + shop, { headers });
+      if (!res.ok) { renderOnboarding({ has_products: false, has_cost_rules: false, has_orders: false, has_settings: false, completed: false }); return; }
+      var data = await res.json();
       renderOnboarding(data);
-    } catch(e) {}
+    } catch(e) {
+      renderOnboarding({ has_products: false, has_cost_rules: false, has_orders: false, has_settings: false, completed: false });
+    }
   }
 
   function renderOnboarding(data) {
-    if (data.completed) { document.getElementById('onboarding-container').style.display = 'none'; return; }
+    var con = document.getElementById('onboarding-container');
+    if (data.dismissed || data.completed) { con.style.display = 'none'; return; }
 
-    const steps = [
-      { key: 'has_products', title: 'Sync your products', desc: 'Import your product catalogue from Shopify', action: 'syncProducts', btnLabel: 'Sync Products' },
-      { key: 'has_cost_rules', title: 'Add cost rules', desc: 'Set up payment processing, shipping & fulfilment costs', action: 'goToCosts', btnLabel: 'Add Cost Rules' },
-      { key: 'has_orders', title: 'Sync your orders', desc: 'Import recent orders to calculate margin data', action: 'syncOrders', btnLabel: 'Sync Orders' },
-      { key: null, title: 'Review your margins', desc: 'See which orders need attention and fix missing costs', action: 'goToOrders', btnLabel: 'View Orders' },
+    var steps = [
+      { key: null,              always: true,       title: 'Install the app',              desc: 'MarginGuard is connected to your store',          action: null,          btnLabel: null },
+      { key: 'has_products',    always: false,       title: 'Sync your products',           desc: 'Import your product catalogue from Shopify',      action: 'syncProducts', btnLabel: 'Sync Products' },
+      { key: 'has_cost_rules',  always: false,       title: 'Add cost rules',               desc: 'Set up payment processing, shipping & fulfilment', action: 'goToCosts',    btnLabel: 'Add Cost Rules' },
+      { key: 'has_orders',      always: false,       title: 'Sync your orders',             desc: 'Import recent orders to calculate margin data',   action: 'syncOrders',   btnLabel: 'Sync Orders' },
+      { key: 'has_settings',    always: false,       title: 'Configure target margin',      desc: 'Set your margin goals and alert preferences',     action: 'goToSettings', btnLabel: 'Open Settings' },
     ];
 
-    const completed = [data.has_products, data.has_cost_rules, data.has_orders, data.has_orders].filter(Boolean).length;
-    const total = 4;
-    const pct = Math.round((completed / total) * 100);
+    var doneCount = steps.filter(function(s) { return s.always || data[s.key]; }).length;
+    var total = steps.length;
+    var pct = Math.round((doneCount / total) * 100);
 
-    const stepsHtml = steps.map(function(s, i) {
-      const done = s.key ? data[s.key] : data.has_orders;
-      const num = i + 1;
-      return '<div style="display:flex;align-items:flex-start;gap:16px;padding:16px 0;border-bottom:1px solid #f3f4f6">' +
-        '<div style="width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;font-weight:700;' +
-          (done ? 'background:#d1fae5;color:#059669' : 'background:#f3f4f6;color:#9ca3af') + '">' + (done ? '✓' : num) + '</div>' +
-        '<div style="flex:1">' +
-          '<div style="font-weight:700;font-size:14px;color:' + (done ? '#9ca3af' : '#111827') + ';' + (done ? 'text-decoration:line-through' : '') + '">' + s.title + '</div>' +
-          '<div style="font-size:13px;color:#9ca3af;margin-top:2px">' + s.desc + '</div>' +
+    var stepsHtml = steps.map(function(s, i) {
+      var done = s.always || data[s.key];
+      return '<div class="onboarding-step">' +
+        '<div class="step-num ' + (done ? 'done' : 'pending') + '">' + (done ? '✓' : (i + 1)) + '</div>' +
+        '<div class="step-body">' +
+          '<div class="step-title ' + (done ? 'done' : '') + '">' + s.title + '</div>' +
+          '<div class="step-desc">' + s.desc + '</div>' +
         '</div>' +
-        (!done ? '<button class="btn btn-secondary btn-sm" onclick="onboardAction(\'' + s.action + '\')" style="flex-shrink:0">' + s.btnLabel + '</button>' :
-                 '<span style="font-size:12px;font-weight:600;color:#059669;flex-shrink:0">Completed ✓</span>') +
+        '<div class="step-action">' +
+          (!done && s.action
+            ? '<button class="btn btn-secondary btn-sm" onclick="onboardAction(\\'' + s.action + '\\')">' + s.btnLabel + '</button>'
+            : (done ? '<span style="font-size:12px;font-weight:600;color:#059669">Done ✓</span>' : '')) +
+        '</div>' +
       '</div>';
     }).join('');
 
-    document.getElementById('onboarding-container').innerHTML =
-      '<div class="card" style="margin-bottom:20px;border-left:4px solid #059669;background:linear-gradient(135deg,#f0fdf4 0%,#fff 60%)">' +
+    con.innerHTML =
+      '<div class="card" style="margin-bottom:20px;border-left:4px solid #059669">' +
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">' +
           '<div>' +
-            '<div style="font-size:17px;font-weight:800;color:#111827;letter-spacing:-0.02em">🚀 Get started with MarginGuard</div>' +
-            '<div style="font-size:13px;color:#9ca3af;margin-top:3px">Complete these steps to start tracking your margins</div>' +
+            '<div style="font-size:16px;font-weight:800;color:#111827;letter-spacing:-0.02em">Get started with MarginGuard</div>' +
+            '<div style="font-size:13px;color:#6b7280;margin-top:3px">Complete these steps to start tracking your margins</div>' +
           '</div>' +
-          '<button onclick="document.getElementById(\'onboarding-container\').style.display=\'none\'" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:13px;padding:4px 8px;border-radius:6px" onmouseover="this.style.background=\'#f3f4f6\'" onmouseout="this.style.background=\'none\'">Dismiss</button>' +
+          '<button onclick="dismissOnboarding()" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:13px;padding:4px 8px;border-radius:6px;font-weight:500;transition:opacity 0.15s" onmouseenter="this.style.opacity=\\'0.6\\'" onmouseleave="this.style.opacity=\\'1\\'">Dismiss</button>' +
         '</div>' +
-        '<div style="background:#f3f4f6;border-radius:8px;height:8px;margin-bottom:8px;overflow:hidden">' +
-          '<div style="background:linear-gradient(90deg,#059669,#10b981);height:100%;width:' + pct + '%;border-radius:8px;transition:width 0.5s ease"></div>' +
+        '<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">' +
+          '<div style="flex:1;background:#f3f4f6;border-radius:8px;height:6px;overflow:hidden">' +
+            '<div style="background:linear-gradient(90deg,#059669,#10b981);height:100%;width:' + pct + '%;border-radius:8px;transition:width 0.5s ease"></div>' +
+          '</div>' +
+          '<div style="font-size:12px;font-weight:600;color:#6b7280;white-space:nowrap">' + doneCount + ' of ' + total + '</div>' +
         '</div>' +
-        '<div style="font-size:12px;color:#9ca3af;margin-bottom:4px">' + completed + ' of ' + total + ' steps complete</div>' +
         stepsHtml +
       '</div>';
   }
 
+  async function dismissOnboarding() {
+    document.getElementById('onboarding-container').style.display = 'none';
+    try {
+      var shop = shopParam();
+      var headers = await authHeaders();
+      headers['Content-Type'] = 'application/json';
+      await fetch(appBase + '/api/onboarding/dismiss?shop=' + shop, { method: 'POST', headers });
+    } catch(e) {}
+  }
+
   async function onboardAction(action) {
-    const token = await getSessionToken();
-    var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
+    var shop = shopParam();
+    var headers = await authHeaders();
     if (action === 'syncProducts') {
-      await fetch('/api/sync/products?shop=' + shop, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } });
+      await fetch(appBase + '/api/sync/products?shop=' + shop, { method: 'POST', headers });
       setTimeout(fetchOnboarding, 2000);
     } else if (action === 'syncOrders') {
-      await fetch('/api/sync/orders?shop=' + shop, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } });
+      await fetch(appBase + '/api/sync/orders?shop=' + shop, { method: 'POST', headers });
       setTimeout(fetchOnboarding, 3000);
     } else if (action === 'goToCosts') {
       navigateTo('/app/costs');
     } else if (action === 'goToOrders') {
       navigateTo('/app/orders');
+    } else if (action === 'goToSettings') {
+      navigateTo('/app/settings');
     }
   }
 
@@ -281,7 +357,7 @@
   });
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => { fetchDashboard(currentRange); fetchOnboarding(); });
+    document.addEventListener('DOMContentLoaded', function() { fetchDashboard(currentRange); fetchOnboarding(); });
   } else {
     fetchDashboard(currentRange);
     fetchOnboarding();

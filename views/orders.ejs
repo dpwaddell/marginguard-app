@@ -1,7 +1,10 @@
 <%- include('layout', { body: `
 <div class="page">
   <div class="page-header">
-    <h1>Orders</h1>
+    <div>
+      <h1>Orders</h1>
+      <div class="page-subtitle">Monitor order profitability and identify margin risks</div>
+    </div>
     <div class="flex gap-2 items-center">
       <select class="form-input" id="sort-select" style="width:auto">
         <option value="margin_asc">Lowest margin first</option>
@@ -26,7 +29,7 @@
   <div id="plan-notice"></div>
 
   <div id="period-stats" style="display:none;margin-bottom:14px">
-    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);gap:10px">
+    <div class="stat-grid">
       <div class="stat-card accent-blue"><div class="stat-label">Total Revenue</div><div class="stat-value" id="ps-revenue">—</div></div>
       <div class="stat-card accent-green"><div class="stat-label">Net Profit</div><div class="stat-value" id="ps-profit">—</div></div>
       <div class="stat-card accent-green"><div class="stat-label">Avg Margin</div><div class="stat-value" id="ps-margin">—</div></div>
@@ -68,11 +71,15 @@
   async function fetchOrders(range, page, sort) {
     document.getElementById('orders-tbody').innerHTML = '<tr><td colspan="8" class="loading">Loading...</td></tr>';
     try {
-      const token = await getSessionToken();
       var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
+      var headers = {};
+      try {
+        const token = await getSessionToken();
+        headers['Authorization'] = 'Bearer ' + token;
+      } catch(e) {}
       const res = await fetch(
         '/api/orders?range=' + range + '&page=' + page + '&sort=' + sort + '&shop=' + shop,
-        { headers: { 'Authorization': 'Bearer ' + token } }
+        { headers }
       );
       const data = await res.json();
       renderOrders(data);

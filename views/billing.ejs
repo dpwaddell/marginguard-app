@@ -1,7 +1,10 @@
 <%- include('layout', { body: `
 <div class="page">
   <div class="page-header">
-    <h1>Billing</h1>
+    <div>
+      <h1>Billing</h1>
+      <div class="page-subtitle">Manage your MarginGuard subscription</div>
+    </div>
   </div>
 
   <div id="billing-status" style="margin-bottom:16px"></div>
@@ -52,9 +55,10 @@
 <script>
   async function loadBillingStatus() {
     try {
-      const token = await getSessionToken();
       var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
-      const res = await fetch('/api/billing/status?shop=' + shop, { headers: { 'Authorization': 'Bearer ' + token } });
+      var headers = {};
+      try { const token = await getSessionToken(); headers['Authorization'] = 'Bearer ' + token; } catch(e) {}
+      const res = await fetch('/api/billing/status?shop=' + shop, { headers });
       const data = await res.json();
       if (data.plan === 'Pro') {
         document.getElementById('free-action').innerHTML = '';
@@ -70,10 +74,11 @@
     const status = document.getElementById('billing-status');
     status.innerHTML = '<div class="alert-bar">Redirecting to Shopify billing...</div>';
     try {
-      const token = await getSessionToken();
+      var bHeaders = {};
+      try { const token = await getSessionToken(); bHeaders['Authorization'] = 'Bearer ' + token; } catch(e) {}
       const res = await fetch('/billing/subscribe', {
         method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + token }
+        headers: bHeaders
       });
       const data = await res.json();
       if (data.confirmation_url) {

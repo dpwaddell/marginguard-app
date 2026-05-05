@@ -1,11 +1,14 @@
 <%- include('layout', { body: `
 <div class="page">
   <div class="page-header">
-    <h1>Settings</h1>
+    <div>
+      <h1>Settings</h1>
+      <div class="page-subtitle">Configure margin thresholds and alert preferences</div>
+    </div>
   </div>
 
   <div class="card">
-    <div style="font-size:14px;font-weight:700;color:#202223;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #e1e3e5">Margin Thresholds</div>
+    <div class="section-header">Margin Thresholds</div>
     <form id="settings-form">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
         <div class="form-group">
@@ -28,7 +31,7 @@
         </div>
       </div>
 
-      <div style="font-size:14px;font-weight:700;color:#202223;margin-top:24px;margin-bottom:12px;padding-top:16px;border-top:1px solid #e1e3e5">Alert Settings</div>
+      <div class="section-header" style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb">Alert Settings</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
         <div class="form-group">
           <label class="form-label">Alert Email</label>
@@ -59,7 +62,7 @@
   </div>
 
   <div class="card" style="margin-top:16px">
-    <div style="font-size:14px;font-weight:700;color:#202223;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #e1e3e5">Manual Data Sync</div>
+    <div class="section-header">Manual Data Sync</div>
     <p style="color:#6d7175;margin-bottom:12px">Re-sync product costs and order margins from Shopify. This runs automatically on install.</p>
     <div class="flex gap-2">
       <button class="btn btn-secondary btn-sm" id="sync-products-btn">Sync Product Costs</button>
@@ -72,9 +75,10 @@
 <script>
   async function loadSettings() {
     try {
-      const token = await getSessionToken();
       var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
-      const res = await fetch('/api/settings?shop=' + shop, { headers: { 'Authorization': 'Bearer ' + token } });
+      var headers = {};
+      try { const token = await getSessionToken(); headers['Authorization'] = 'Bearer ' + token; } catch(e) {}
+      const res = await fetch('/api/settings?shop=' + shop, { headers });
       const data = await res.json();
       const s = data.settings || {};
       document.getElementById('target-margin').value = s.target_margin_percent ?? 30;
@@ -92,11 +96,12 @@
     const status = document.getElementById('save-status');
     status.textContent = 'Saving...';
     try {
-      const token = await getSessionToken();
       var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
+      var headers = { 'Content-Type': 'application/json' };
+      try { const token = await getSessionToken(); headers['Authorization'] = 'Bearer ' + token; } catch(e) {}
       const res = await fetch('/api/settings?shop=' + shop, {
         method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           target_margin_percent: document.getElementById('target-margin').value,
           min_profit_amount: document.getElementById('min-profit').value,
@@ -117,9 +122,10 @@
     const status = document.getElementById('sync-status');
     status.textContent = 'Starting sync...';
     try {
-      const token = await getSessionToken();
       var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
-      await fetch(endpoint + '?shop=' + shop, { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } });
+      var headers = {};
+      try { const token = await getSessionToken(); headers['Authorization'] = 'Bearer ' + token; } catch(e) {}
+      await fetch(endpoint + '?shop=' + shop, { method: 'POST', headers });
       status.textContent = 'Sync started. Data will update shortly.';
       setTimeout(() => { status.textContent = ''; }, 5000);
     } catch(e) { status.textContent = 'Sync failed.'; }
