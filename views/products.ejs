@@ -62,8 +62,8 @@
     const summaryEl = document.getElementById('products-summary');
     if (summaryEl) {
       summaryEl.innerHTML = missing > 0
-        ? '<span style="color:#d72c0d">⚠ ' + missing + ' of ' + products.length + ' variants missing costs — <a href="/app/costs" style="color:#d72c0d">add cost rules</a> or enter manual overrides below.</span>'
-        : '<span style="color:#008060">✓ All ' + products.length + ' variants have cost data.</span>';
+        ? '<div class="alert-bar"><span class="alert-icon">⚠</span><div><strong>' + missing + ' of ' + products.length + ' variants missing costs</strong> — <a href="/app/costs">add cost rules</a> or enter manual overrides below.</div></div>'
+        : '<div class="alert-bar success"><span class="alert-icon">✓</span><div>All <strong>' + products.length + ' variants</strong> have cost data.</div></div>';
     }
 
     tbody.innerHTML = products.map(p => {

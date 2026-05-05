@@ -72,6 +72,8 @@
   async function initNavPlanBadge() {
     var el = document.getElementById('nav-plan-badge');
     if (!el) return;
+    el.className = 'nav-plan-badge free';
+    el.textContent = 'Free';
     try {
       var shop = getNavParams().shop;
       var headers = {};

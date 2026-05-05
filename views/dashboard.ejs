@@ -273,8 +273,10 @@
   }
 
   function renderOnboarding(data) {
+    console.log('[Onboarding] data:', JSON.stringify(data));
     var con = document.getElementById('onboarding-container');
-    if (data.dismissed || data.completed) { con.style.display = 'none'; return; }
+    if (data.dismissed) { con.style.display = 'none'; return; }
+    con.style.display = '';
 
     var steps = [
       { key: null,              always: true,       title: 'Install the app',              desc: 'MarginGuard is connected to your store',          action: null,          btnLabel: null },

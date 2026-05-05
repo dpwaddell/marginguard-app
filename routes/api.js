@@ -23,7 +23,8 @@ router.get('/dashboard', auth, async (req, res) => {
     const since = new Date(Date.now() - days * 86400000).toISOString();
     const shop = req.shop;
 
-    const [summary, lowMarginOrders, missingCogs, topOrders] = await Promise.all([
+    const prevSince = new Date(Date.now() - 2 * days * 86400000).toISOString();
+    const [summary, prevSummary, lowMarginOrders, missingCogs, topOrders] = await Promise.all([
       query(
         `SELECT
            COUNT(*) as order_count,
@@ -34,6 +35,16 @@ router.get('/dashboard', auth, async (req, res) => {
            AVG(NULLIF(margin_percent,0)) as avg_margin
          FROM order_margins WHERE shop=$1 AND processed_at >= $2`,
         [shop, since]
+      ),
+      query(
+        `SELECT
+           COALESCE(SUM(gross_revenue),0) as total_revenue,
+           COALESCE(SUM(discount_total),0) as total_discounts,
+           COALESCE(SUM(total_costs),0) as total_costs,
+           COALESCE(SUM(net_profit),0) as total_profit,
+           AVG(NULLIF(margin_percent,0)) as avg_margin
+         FROM order_margins WHERE shop=$1 AND processed_at >= $2 AND processed_at < $3`,
+        [shop, prevSince, since]
       ),
       query(
         'SELECT COUNT(*) as count FROM order_margins WHERE shop=$1 AND processed_at>=$2 AND low_margin=true',
@@ -53,6 +64,7 @@ router.get('/dashboard', auth, async (req, res) => {
 
     res.json({
       summary: summary.rows[0],
+      prev_summary: prevSummary.rows[0],
       low_margin_count: parseInt(lowMarginOrders.rows[0].count),
       missing_cogs_count: parseInt(missingCogs.rows[0].count),
       top_low_margin_orders: topOrders.rows,
@@ -214,7 +226,7 @@ router.post('/cost-rules', auth, async (req, res) => {
     const isPro = req.shopRecord.plan_name === 'Pro';
     const existingCount = (await getAllRules(req.shop)).length;
     if (!isPro && existingCount >= 3) {
-      return res.status(403).json({ error: 'Free plan limited to 3 cost rules', upgrade: true });
+      return res.status(403).json({ error: 'Free plan is limited to 3 cost rules. Upgrade to Pro for unlimited rules.', upgrade: true });
     }
     if (!isPro && req.body.applies_to === 'product_tag') {
       return res.status(403).json({ error: 'Product tag rules require Pro plan', upgrade: true });
@@ -316,15 +328,30 @@ router.get('/billing/status', auth, async (req, res) => {
 // --- Onboarding status ---
 router.get('/onboarding/status', auth, async (req, res) => {
   try {
-    const [p, r, o] = await Promise.all([
+    if (req.shopRecord.onboarding_dismissed_at) {
+      return res.json({ dismissed: true, completed: true });
+    }
+    const [p, r, o, s] = await Promise.all([
       query('SELECT COUNT(*) FROM variant_costs WHERE shop=$1', [req.shop]),
       query('SELECT COUNT(*) FROM cost_rules WHERE shop=$1', [req.shop]),
       query('SELECT COUNT(*) FROM order_margins WHERE shop=$1', [req.shop]),
+      query('SELECT COUNT(*) FROM margin_settings WHERE shop=$1', [req.shop]),
     ]);
     const has_products = parseInt(p.rows[0].count) > 0;
     const has_cost_rules = parseInt(r.rows[0].count) > 0;
     const has_orders = parseInt(o.rows[0].count) > 0;
-    res.json({ has_products, has_cost_rules, has_orders, completed: has_products && has_cost_rules && has_orders });
+    const has_settings = parseInt(s.rows[0].count) > 0;
+    const completed = has_products && has_cost_rules && has_orders && has_settings;
+    res.json({ has_products, has_cost_rules, has_orders, has_settings, completed });
+  } catch(err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/onboarding/dismiss', auth, async (req, res) => {
+  try {
+    await query('UPDATE shops SET onboarding_dismissed_at = now() WHERE shop = $1', [req.shop]);
+    res.json({ success: true });
   } catch(err) {
     res.status(500).json({ error: err.message });
   }
