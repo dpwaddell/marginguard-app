@@ -43,6 +43,9 @@ app.use(cookieParser());
 const webhookRouter = require('./routes/webhooks');
 app.use('/webhooks', express.raw({ type: 'application/json' }), webhookRouter);
 
+// GDPR compliance webhooks (raw body required for HMAC verification)
+app.use('/webhooks', express.raw({ type: 'application/json' }), require('./routes/compliance'));
+
 // JSON + URL-encoded body for all other routes
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
