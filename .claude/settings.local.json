@@ -15,7 +15,9 @@
       "Bash(git commit -m ' *)",
       "Bash(git commit *)",
       "WebFetch(domain:shopify.dev)",
-      "Bash(pwd -P)"
+      "Bash(pwd -P)",
+      "Bash(git push *)",
+      "Bash(echo \"exit: $?\")"
     ]
   }
 }

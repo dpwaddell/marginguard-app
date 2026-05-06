@@ -65,6 +65,12 @@ router.get('/callback', async (req, res) => {
     // Shopify Partner Dashboard app is configured for online access mode.
     // Log a warning but continue — redirecting back to OAuth would cause an infinite loop
     // because Shopify will keep issuing shpua_ tokens until the Partner Dashboard is fixed.
+    //
+    // NOTE: We cannot call exchangeForOfflineToken here because that function expects an
+    // App Bridge id_token (JWT), not an OAuth access token. Token Exchange via
+    // subject_token_type=id_token only accepts App Bridge session tokens, which are only
+    // available once the merchant loads the embedded app page. The proactiveTokenExchange()
+    // call in requireSessionToken() handles the exchange on first page load instead.
     if (access_token.startsWith('shpua_')) {
       console.warn(`[Auth] Got online token (shpua_) for ${shop} — app may be configured for per-user access in Partner Dashboard. Continuing anyway.`);
     }

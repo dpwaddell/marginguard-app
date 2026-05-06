@@ -29,6 +29,13 @@ app.use((req, res, next) => {
   next();
 });
 
+// Security headers
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
 // Cookie parser
 app.use(cookieParser());
 
@@ -54,7 +61,12 @@ app.get('/', (req, res) => {
 });
 
 // Health check
-app.get('/health', (req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
+app.get('/health', (req, res) => res.json({
+  status: 'ok',
+  app: 'MarginGuard',
+  version: '1.0.0',
+  env: process.env.NODE_ENV || 'development',
+}));
 
 // 404
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
