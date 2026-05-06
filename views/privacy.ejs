@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy — MarginGuard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+      background: #f0f1f3;
+      color: #111827;
+      font-size: 15px;
+      line-height: 1.7;
+    }
+    header {
+      background: #fff;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 0 28px;
+      height: 68px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    header img { width: 40px; height: 40px; border-radius: 8px; object-fit: contain; }
+    header .brand-name { font-weight: 800; font-size: 18px; color: #111827; letter-spacing: -0.03em; }
+    header .brand-tagline { font-size: 11px; color: #9ca3af; margin-top: 1px; }
+    .container {
+      max-width: 760px;
+      margin: 48px auto;
+      padding: 0 24px 64px;
+    }
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      color: #111827;
+      letter-spacing: -0.04em;
+      margin-bottom: 6px;
+    }
+    .updated {
+      font-size: 13px;
+      color: #9ca3af;
+      margin-bottom: 36px;
+    }
+    h2 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #111827;
+      margin-top: 36px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    p { margin-bottom: 14px; color: #374151; }
+    ul {
+      margin: 0 0 14px 20px;
+      color: #374151;
+    }
+    ul li { margin-bottom: 6px; }
+    a { color: #059669; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 32px 36px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="/logo.png" alt="MarginGuard logo">
+    <div>
+      <div class="brand-name">MarginGuard</div>
+      <div class="brand-tagline">Margin tracking for Shopify stores</div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="card">
+      <h1>Privacy Policy</h1>
+      <p class="updated">Last updated: May 2025</p>
+
+      <h2>Overview</h2>
+      <p>MarginGuard is a Shopify app that calculates profit margins for your store's orders. This policy explains what data we access, how we use it, and your rights as a merchant.</p>
+
+      <h2>Data We Collect</h2>
+      <p>When you install MarginGuard, we access the following data from your Shopify store via the Shopify Admin API:</p>
+      <ul>
+        <li><strong>Order data</strong> — order IDs, order names, line items, quantities, prices, discounts, and processing dates from your last 90 days of orders.</li>
+        <li><strong>Product and variant data</strong> — product titles, variant titles, SKUs, and cost-of-goods (COGS) values where available in Shopify.</li>
+        <li><strong>Store information</strong> — your store's domain and access credentials required to authenticate API requests.</li>
+        <li><strong>Merchant-entered cost data</strong> — any manual unit costs or cost rules you configure within MarginGuard.</li>
+      </ul>
+
+      <h2>How We Use Your Data</h2>
+      <p>All data collected is used exclusively to provide the MarginGuard service: calculating order-level profit margins, flagging low-margin orders, and surfacing cost insights in your dashboard.</p>
+      <ul>
+        <li>We do <strong>not</strong> sell your data to any third party.</li>
+        <li>We do <strong>not</strong> share your data with any external service or advertiser.</li>
+        <li>We do <strong>not</strong> use your store data for any purpose beyond margin calculation and the features you configure in MarginGuard.</li>
+      </ul>
+
+      <h2>Data Retention</h2>
+      <p>All data associated with your store — including orders, products, cost settings, and calculated margins — is permanently deleted from our systems when you uninstall the MarginGuard app from your Shopify store.</p>
+      <p>We do not retain any store data after uninstallation.</p>
+
+      <h2>Third-Party Services</h2>
+      <p>MarginGuard does not share your data with any third-party services. The app operates exclusively within infrastructure we control.</p>
+      <p>The only external service we communicate with during normal operation is the <strong>Shopify Admin API</strong>, which is part of your existing Shopify subscription.</p>
+
+      <h2>Security</h2>
+      <p>We store access credentials securely in an encrypted database and communicate with the Shopify API exclusively over HTTPS. Access tokens are scoped to the minimum permissions required to provide the service.</p>
+
+      <h2>Your Rights</h2>
+      <p>As a Shopify merchant, you retain full ownership of your store data. You can request deletion of all your data at any time by uninstalling the app, or by contacting us directly at the address below.</p>
+
+      <h2>Contact</h2>
+      <p>If you have questions about this privacy policy or how we handle your data, please contact us at:<br>
+      <a href="mailto:support@sample-guard.com">support@sample-guard.com</a></p>
+
+      <p>Our app is available at: <a href="https://marginguard.sample-guard.com">https://marginguard.sample-guard.com</a></p>
+    </div>
+  </div>
+</body>
+</html>

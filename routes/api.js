@@ -5,7 +5,8 @@ const { requiresPro } = require('../lib/billing');
 const { query } = require('../lib/db');
 const { getAllRules, createRule, updateRule, deleteRule } = require('../lib/cost-rules');
 const { syncProducts } = require('../lib/product-sync');
-const { syncOrders } = require('../lib/order-sync');
+const { syncOrders, recalculateShopMargins } = require('../lib/order-sync');
+const { getValidToken } = require('../lib/shopify-client');
 
 // Auth + shop record for authenticated routes
 const attachShopRecord = async (req, res, next) => {
@@ -203,6 +204,11 @@ router.post('/products/:variantId/cost-override', auth, async (req, res) => {
     );
     if (!rows[0]) return res.status(404).json({ error: 'Variant not found' });
     res.json({ variant: rows[0] });
+    getValidToken(req.shop).then(token => {
+      if (token) recalculateShopMargins(req.shop, token).catch(err =>
+        console.error(`[API] Recalculate after cost-override error for ${req.shop}:`, err.message)
+      );
+    }).catch(() => {});
   } catch (err) {
     console.error('[API] /products cost-override error:', err.message);
     res.status(500).json({ error: 'Failed to update cost' });
@@ -233,6 +239,11 @@ router.post('/cost-rules', auth, async (req, res) => {
     }
     const rule = await createRule(req.shop, req.body);
     res.status(201).json({ rule });
+    getValidToken(req.shop).then(token => {
+      if (token) recalculateShopMargins(req.shop, token).catch(err =>
+        console.error(`[API] Recalculate after cost-rule create error for ${req.shop}:`, err.message)
+      );
+    }).catch(() => {});
   } catch (err) {
     console.error('[API] /cost-rules POST error:', err.message);
     res.status(500).json({ error: 'Failed to create cost rule' });
@@ -244,6 +255,11 @@ router.put('/cost-rules/:id', auth, async (req, res) => {
     const rule = await updateRule(req.shop, req.params.id, req.body);
     if (!rule) return res.status(404).json({ error: 'Rule not found' });
     res.json({ rule });
+    getValidToken(req.shop).then(token => {
+      if (token) recalculateShopMargins(req.shop, token).catch(err =>
+        console.error(`[API] Recalculate after cost-rule update error for ${req.shop}:`, err.message)
+      );
+    }).catch(() => {});
   } catch (err) {
     console.error('[API] /cost-rules PUT error:', err.message);
     res.status(500).json({ error: 'Failed to update cost rule' });
@@ -317,6 +333,21 @@ router.post('/sync/orders', auth, async (req, res) => {
     res.json({ message: 'Order sync started' });
   } catch (err) {
     res.status(500).json({ error: 'Failed to start sync' });
+  }
+});
+
+// --- Recalculate margins ---
+router.post('/recalculate', auth, async (req, res) => {
+  try {
+    const token = await getValidToken(req.shop);
+    if (!token) return res.status(400).json({ error: 'No valid token for shop' });
+    recalculateShopMargins(req.shop, token).catch(err =>
+      console.error(`[API] Recalculate error for ${req.shop}:`, err.message)
+    );
+    res.json({ message: 'Recalculation started' });
+  } catch (err) {
+    console.error('[API] /recalculate error:', err.message);
+    res.status(500).json({ error: 'Failed to start recalculation' });
   }
 });
 

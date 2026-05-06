@@ -47,6 +47,9 @@ app.use('/webhooks', express.raw({ type: 'application/json' }), webhookRouter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Public routes (no auth)
+app.get('/privacy', (req, res) => res.render('privacy'));
+
 // Routes
 app.use('/auth', require('./routes/auth'));
 app.use('/billing', require('./routes/billing'));

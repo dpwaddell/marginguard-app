@@ -70,6 +70,13 @@
     </div>
     <div id="sync-status" style="margin-top:8px;color:#6b7280"></div>
   </div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="section-header">Recalculate Margins</div>
+    <p style="color:#6b7280;margin-bottom:12px">Re-run margin calculations using your current COGS and cost rules. Use this after updating product costs to immediately reflect the changes.</p>
+    <button class="btn btn-secondary btn-sm" id="recalculate-btn">Recalculate Margins</button>
+    <div id="recalculate-status" style="margin-top:8px;color:#6b7280"></div>
+  </div>
 </div>
 
 <script>
@@ -133,6 +140,19 @@
 
   document.getElementById('sync-products-btn').addEventListener('click', () => triggerSync('/api/sync/products'));
   document.getElementById('sync-orders-btn').addEventListener('click', () => triggerSync('/api/sync/orders'));
+
+  document.getElementById('recalculate-btn').addEventListener('click', async () => {
+    const status = document.getElementById('recalculate-status');
+    status.textContent = 'Starting recalculation...';
+    try {
+      var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
+      var headers = {};
+      try { const token = await getSessionToken(); headers['Authorization'] = 'Bearer ' + token; } catch(e) {}
+      await fetch('/api/recalculate?shop=' + shop, { method: 'POST', headers });
+      status.textContent = 'Recalculation started. Margins will update shortly.';
+      setTimeout(() => { status.textContent = ''; }, 5000);
+    } catch(e) { status.textContent = 'Recalculation failed.'; }
+  });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', loadSettings);
