@@ -11,6 +11,15 @@ const app = express();
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
+// Redirect HTTP → HTTPS in production (must be before static assets)
+if (process.env.NODE_ENV === 'production') {
+  app.use((req, res, next) => {
+    const proto = req.headers['x-forwarded-proto']?.split(',')[0].trim();
+    if (proto === 'https') return next();
+    res.redirect(301, `https://${req.headers.host}${req.url}`);
+  });
+}
+
 // Static assets
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -60,6 +69,9 @@ const PORT = process.env.PORT || 3000;
 
 async function start() {
   try {
+    if (process.env.NODE_ENV === 'production' && !process.env.APP_BASE_URL?.startsWith('https://')) {
+      console.warn('[MarginGuard] WARNING: APP_BASE_URL does not begin with https:// — Shopify requires HTTPS for embedded apps');
+    }
     await runMigrations();
     app.listen(PORT, () => {
       console.log(`[MarginGuard] Running on port ${PORT}`);

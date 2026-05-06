@@ -4,7 +4,18 @@
       "Bash(npm install *)",
       "Bash(node *)",
       "Bash(git -C /mnt/user/appdata/marginguard log --all --full-history -- .env)",
-      "Bash(docker compose *)"
+      "Bash(docker compose *)",
+      "Bash(docker exec marginguard-marginguard-app-1 *)",
+      "Bash(docker exec marginguard-marginguard-db-1 *)",
+      "Bash(grep -v \"^$\")",
+      "Bash(curl *)",
+      "Bash(python3 -m json.tool)",
+      "Bash(grep -o \"onmouseenter[^'\\\\\"]*.\\\\{0,40\\\\}\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git commit *)",
+      "WebFetch(domain:shopify.dev)",
+      "Bash(pwd -P)"
     ]
   }
 }

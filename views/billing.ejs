@@ -54,20 +54,87 @@
 
 <script>
   async function loadBillingStatus() {
+    const cancelledParam = new URLSearchParams(window.location.search).get('plan') === 'cancelled';
+    const declinedParam = new URLSearchParams(window.location.search).get('billing') === 'declined';
     try {
       var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
       var headers = {};
       try { const token = await getSessionToken(); headers['Authorization'] = 'Bearer ' + token; } catch(e) {}
       const res = await fetch('/api/billing/status?shop=' + shop, { headers });
       const data = await res.json();
+      if (cancelledParam) {
+        const bar = document.getElementById('billing-status');
+        bar.innerHTML = '<div class="alert-bar" style="display:flex;align-items:center;justify-content:space-between">Your subscription has been cancelled. You\'re now on the Free plan.<button onclick="this.closest(\'.alert-bar\').remove()" style="background:none;border:none;cursor:pointer;font-size:16px;color:#6b7280;line-height:1;padding:0 0 0 12px">×</button></div>';
+      }
       if (data.plan === 'Pro') {
         document.getElementById('free-action').innerHTML = '';
-        document.getElementById('pro-action').innerHTML = '<span style="display:inline-block;background:#008060;color:#fff;font-size:12px;font-weight:600;padding:6px 14px;border-radius:6px">Current plan ✓</span>';
+        document.getElementById('pro-action').innerHTML =
+          '<span style="display:inline-block;background:#008060;color:#fff;font-size:12px;font-weight:600;padding:6px 14px;border-radius:6px">Current plan ✓</span>' +
+          '<div id="cancel-area" style="text-align:center;margin-top:10px"><button id="cancel-link" style="background:none;border:none;cursor:pointer;font-size:12px;color:#8c9196;text-decoration:underline;padding:0">Cancel subscription</button></div>';
         document.getElementById('free-card').style.borderColor = '#e5e7eb';
         document.getElementById('pro-card').style.borderColor = '#008060';
         document.getElementById('billing-status').innerHTML = '<div class="alert-bar success">✓ You are on the <strong>Pro plan</strong>. Thank you for supporting MarginGuard!</div>';
+
+        function showCancelConfirm() {
+          document.getElementById('cancel-area').innerHTML =
+            '<span style="font-size:12px;color:#6b7280">Are you sure? </span>' +
+            '<button id="confirm-cancel-btn" style="background:none;border:none;cursor:pointer;font-size:12px;color:#d82c0d;text-decoration:underline;padding:0 4px">Confirm cancel</button>' +
+            '<span style="font-size:12px;color:#6b7280"> · </span>' +
+            '<button id="keep-sub-btn" style="background:none;border:none;cursor:pointer;font-size:12px;color:#008060;text-decoration:underline;padding:0">Keep subscription</button>';
+
+          document.getElementById('keep-sub-btn').addEventListener('click', function() {
+            document.getElementById('cancel-area').innerHTML = '<button id="cancel-link-restored" style="background:none;border:none;cursor:pointer;font-size:12px;color:#8c9196;text-decoration:underline;padding:0">Cancel subscription</button>';
+            document.getElementById('cancel-link-restored').addEventListener('click', showCancelConfirm);
+          });
+
+          document.getElementById('confirm-cancel-btn').addEventListener('click', async function() {
+            document.getElementById('cancel-area').innerHTML = '<span style="font-size:12px;color:#8c9196">Cancelling...</span>';
+            try {
+              var cHeaders = {};
+              try { const token = await getSessionToken(); cHeaders['Authorization'] = 'Bearer ' + token; } catch(e) {}
+              const res = await fetch('/billing/cancel', { method: 'POST', headers: cHeaders });
+              if (res.ok) {
+                window.location.href = '/app/billing?plan=cancelled';
+              } else {
+                const errData = await res.json().catch(() => ({}));
+                const errSpan = document.createElement('span');
+                errSpan.style = 'font-size:12px;color:#d82c0d';
+                errSpan.textContent = 'Error: ' + (errData.error || 'Could not cancel. Please try again.');
+                const area = document.getElementById('cancel-area');
+                area.replaceChildren(errSpan);
+              }
+            } catch(e) {
+              document.getElementById('cancel-area').innerHTML = '<span style="font-size:12px;color:#d82c0d">Failed to cancel. Please try again.</span>';
+            }
+          });
+        }
+
+        document.getElementById('cancel-link').addEventListener('click', showCancelConfirm);
+      } else if (declinedParam) {
+        document.getElementById('billing-status').innerHTML = '<div class="alert-bar danger">⚠ Your billing was declined. Please try again to access Pro features.</div>';
+        document.getElementById('pro-action').innerHTML = '<button class="btn btn-primary" id="retry-billing-btn" style="width:100%;justify-content:center;font-size:14px;height:40px">Try again →</button><div style="text-align:center;font-size:12px;color:#8c9196;margin-top:8px">No charge for 14 days</div>';
+        document.getElementById('retry-billing-btn').addEventListener('click', async function() {
+          const status = document.getElementById('billing-status');
+          status.innerHTML = '<div class="alert-bar">Redirecting to Shopify billing...</div>';
+          try {
+            var rHeaders = {};
+            try { const token = await getSessionToken(); rHeaders['Authorization'] = 'Bearer ' + token; } catch(e) {}
+            const res = await fetch('/billing/subscribe', { method: 'POST', headers: rHeaders });
+            const retryData = await res.json().catch(() => ({}));
+            if (retryData.confirmation_url) {
+              window.top.location.href = retryData.confirmation_url;
+            } else {
+              const errDiv = document.createElement('div');
+              errDiv.className = 'alert-bar danger';
+              errDiv.textContent = 'Billing error: ' + (retryData.error || 'Unknown error');
+              status.replaceChildren(errDiv);
+            }
+          } catch(e) {
+            status.innerHTML = '<div class="alert-bar danger">Failed to start subscription. Please try again.</div>';
+          }
+        });
       }
-    } catch(e) {}
+    } catch(e) { console.error('[Billing] Status load failed:', e); }
   }
 
   document.getElementById('upgrade-btn') && document.getElementById('upgrade-btn').addEventListener('click', async () => {
@@ -80,11 +147,14 @@
         method: 'POST',
         headers: bHeaders
       });
-      const data = await res.json();
-      if (data.confirmation_url) {
-        window.top.location.href = data.confirmation_url;
+      const subData = await res.json().catch(() => ({}));
+      if (subData.confirmation_url) {
+        window.top.location.href = subData.confirmation_url;
       } else {
-        status.innerHTML = '<div class="alert-bar danger">Billing error: ' + (data.error || 'Unknown error') + '</div>';
+        const errDiv = document.createElement('div');
+        errDiv.className = 'alert-bar danger';
+        errDiv.textContent = 'Billing error: ' + (subData.error || 'Unknown error');
+        status.replaceChildren(errDiv);
       }
     } catch(e) {
       status.innerHTML = '<div class="alert-bar danger">Failed to start subscription. Please try again.</div>';

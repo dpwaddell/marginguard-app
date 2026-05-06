@@ -61,6 +61,14 @@ router.get('/callback', async (req, res) => {
     });
     const { access_token } = tokenRes.data;
 
+    // Offline tokens start with shpat_. An online/per-user token (shpua_) means the
+    // Shopify Partner Dashboard app is configured for online access mode.
+    // Log a warning but continue — redirecting back to OAuth would cause an infinite loop
+    // because Shopify will keep issuing shpua_ tokens until the Partner Dashboard is fixed.
+    if (access_token.startsWith('shpua_')) {
+      console.warn(`[Auth] Got online token (shpua_) for ${shop} — app may be configured for per-user access in Partner Dashboard. Continuing anyway.`);
+    }
+
     // Check if this is a new install or a reconnect
     const existing = await query(`SELECT shop FROM shops WHERE shop = $1`, [shop]);
     const isNewInstall = existing.rows.length === 0;
@@ -120,6 +128,22 @@ router.get('/callback', async (req, res) => {
 // Shopify alt callback path
 router.get('/shopify/callback', (req, res) => {
   res.redirect(`/auth/callback?${new URLSearchParams(req.query).toString()}`);
+});
+
+// Manual re-auth escape hatch: clears the stored token and restarts the OAuth flow.
+// Useful when the stored token has expired or been revoked.
+router.get('/reauth', async (req, res) => {
+  const shop = req.query.shop || req.cookies?.mg_shop;
+  if (!shop || !isValidShop(shop)) return res.redirect('https://admin.shopify.com');
+  try {
+    await query(`UPDATE shops SET access_token = NULL, updated_at = now() WHERE shop = $1`, [shop]);
+    console.log(`[Auth] /reauth for ${shop} — token cleared, restarting OAuth`);
+  } catch (err) {
+    console.error(`[Auth] /reauth DB error for ${shop}:`, err.message);
+  }
+  const nonce = generateNonce();
+  nonces.set(nonce, { shop, ts: Date.now() });
+  res.redirect(buildInstallUrl(shop, nonce));
 });
 
 module.exports = router;
