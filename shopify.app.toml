@@ -22,3 +22,8 @@ redirect_urls = [
 
 [webhooks]
 api_version = "2026-04"
+
+[webhooks.privacy_compliance]
+customer_data_request_url = "https://marginguard.sample-guard.com/webhooks/customers/data_request"
+customer_deletion_url = "https://marginguard.sample-guard.com/webhooks/customers/redact"
+shop_deletion_url = "https://marginguard.sample-guard.com/webhooks/shop/redact"
