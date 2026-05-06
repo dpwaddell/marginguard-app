@@ -323,6 +323,10 @@
         '</div>' +
         stepsHtml +
       '</div>';
+
+    if (data.completed) {
+      setTimeout(function() { con.style.display = 'none'; }, 1500);
+    }
   }
 
   async function dismissOnboarding() {
