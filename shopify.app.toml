@@ -1,0 +1,24 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "d06de0755d403f6c0c2a632faa4e6256"
+application_url = "https://marginguard.sample-guard.com/auth"
+embedded = true
+name = "MarginGuard"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_assigned_fulfillment_orders,read_price_rules,read_discounts,read_discounts_allocator_functions,read_inventory,read_locations,read_merchant_managed_fulfillment_orders,read_orders,write_orders,read_products,write_products,read_third_party_fulfillment_orders"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+direct_api_mode = "offline"
+
+[auth]
+redirect_urls = [
+  "https://marginguard.sample-guard.com/auth/callback",
+  "https://marginguard.sample-guard.com/auth/shopify/callback",
+  "https://marginguard.sample-guard.com/billing/callback",
+  "https://marginguard.sample-guard.com/api/auth/callback"
+]
+
+[webhooks]
+api_version = "2026-04"
