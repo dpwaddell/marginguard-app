@@ -137,33 +137,43 @@
     } catch(e) { console.error('[Billing] Status load failed:', e); }
   }
 
-  document.getElementById('upgrade-btn') && document.getElementById('upgrade-btn').addEventListener('click', async () => {
-    const status = document.getElementById('billing-status');
-    status.innerHTML = '<div class="alert-bar">Redirecting to Shopify billing...</div>';
-    try {
-      var bHeaders = {};
-      try { const token = await getSessionToken(); bHeaders['Authorization'] = 'Bearer ' + token; } catch(e) {}
-      const res = await fetch('/billing/subscribe', {
-        method: 'POST',
-        headers: bHeaders
-      });
-      const subData = await res.json().catch(() => ({}));
-      if (subData.confirmation_url) {
-        window.top.location.href = subData.confirmation_url;
-      } else {
-        const errDiv = document.createElement('div');
-        errDiv.className = 'alert-bar danger';
-        errDiv.textContent = 'Billing error: ' + (subData.error || 'Unknown error');
-        status.replaceChildren(errDiv);
+  function attachUpgradeBtn() {
+    var btn = document.getElementById('upgrade-btn');
+    if (!btn) return;
+    btn.addEventListener('click', async function() {
+      console.log('Billing button clicked');
+      var status = document.getElementById('billing-status');
+      status.innerHTML = '<div class="alert-bar">Redirecting to Shopify billing...</div>';
+      try {
+        var shop = (window.__MARGINGUARD__ && window.__MARGINGUARD__.shop) || getCookie('mg_shop') || '';
+        var bHeaders = {};
+        try { const token = await getSessionToken(); bHeaders['Authorization'] = 'Bearer ' + token; } catch(e) {}
+        const res = await fetch('/billing/subscribe?shop=' + shop, {
+          method: 'POST',
+          headers: bHeaders
+        });
+        const subData = await res.json().catch(() => ({}));
+        if (subData.confirmation_url) {
+          window.top.location.href = subData.confirmation_url;
+        } else {
+          const errDiv = document.createElement('div');
+          errDiv.className = 'alert-bar danger';
+          errDiv.textContent = 'Billing error: ' + (subData.error || 'Unknown error');
+          status.replaceChildren(errDiv);
+        }
+      } catch(e) {
+        status.innerHTML = '<div class="alert-bar danger">Failed to start subscription. Please try again.</div>';
       }
-    } catch(e) {
-      status.innerHTML = '<div class="alert-bar danger">Failed to start subscription. Please try again.</div>';
-    }
-  });
+    });
+  }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadBillingStatus);
+    document.addEventListener('DOMContentLoaded', function() {
+      attachUpgradeBtn();
+      loadBillingStatus();
+    });
   } else {
+    attachUpgradeBtn();
     loadBillingStatus();
   }
 </script>

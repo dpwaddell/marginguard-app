@@ -99,7 +99,7 @@
       renderRules();
       if (!isPro) {
         if (rules.length > 3) {
-          document.getElementById('plan-notice').innerHTML = '<div class="upgrade-banner"><strong>Legacy rules:</strong> You have legacy rules from before plan limits were introduced. New rules require Pro. <a href="/app/billing">Upgrade to Pro →</a></div>';
+          document.getElementById('plan-notice').innerHTML = '<div class="upgrade-banner"><strong>Free Plan:</strong> Limited to 3 active cost rules. <a href="/app/billing">Upgrade to Pro →</a> for unlimited rules.</div>';
         } else {
           document.getElementById('plan-notice').innerHTML = '<div class="upgrade-banner"><strong>Free Plan:</strong> Limited to 3 cost rules. Product tag rules require Pro. <a href="/app/billing">Upgrade to Pro →</a></div>';
         }
