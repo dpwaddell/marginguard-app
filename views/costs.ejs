@@ -117,9 +117,14 @@
       tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><p>No cost rules yet. Add your first rule above.</p></div></td></tr>';
       return;
     }
-    tbody.innerHTML = rules.map(r => {
-      return '<tr>' +
-        '<td><strong>' + r.name + '</strong>' + (r.premium_only ? ' <span class="badge badge-pro">Pro</span>' : '') + '</td>' +
+    tbody.innerHTML = rules.map((r, i) => {
+      const isLegacy = !isPro && i >= 3;
+      const rowStyle = isLegacy ? ' style="opacity:0.4"' : '';
+      const legacyBadge = isLegacy
+        ? ' <span class="badge badge-grey" title="This rule existed before plan limits were introduced. It remains active but no new rules can be added on the Free plan.">Legacy</span>'
+        : '';
+      return '<tr' + rowStyle + '>' +
+        '<td><strong>' + r.name + '</strong>' + (r.premium_only ? ' <span class="badge badge-pro">Pro</span>' : '') + legacyBadge + '</td>' +
         '<td><span class="badge badge-grey">' + (r.applies_to === 'product_tag' ? 'Tag: ' + (r.product_tag || '?') : 'Order') + '</span></td>' +
         '<td>' + r.cost_type + '</td>' +
         '<td>' + fmt(r.fixed_amount) + '</td>' +
@@ -192,13 +197,13 @@
         body: JSON.stringify(payload)
       });
       const data = await res.json();
+      if (res.status === 403 || data.upgrade) {
+        document.getElementById('plan-notice').innerHTML = '<div class="alert-bar danger">Free plan is limited to 3 cost rules. <a href="/app/billing">Upgrade to Pro →</a></div>';
+        document.getElementById('form-container').style.display = 'none';
+        return;
+      }
       if (data.error) {
-        if (data.upgrade) {
-          document.getElementById('plan-notice').innerHTML = '<div class="upgrade-banner"><strong>Plan limit reached:</strong> ' + data.error + '. <a href="/app/billing">Upgrade to Pro →</a></div>';
-          document.getElementById('form-container').style.display = 'none';
-        } else {
-          alert(data.error);
-        }
+        alert(data.error);
         return;
       }
       document.getElementById('form-container').style.display = 'none';

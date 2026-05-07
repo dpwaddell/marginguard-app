@@ -232,6 +232,7 @@ router.post('/cost-rules', auth, async (req, res) => {
     const isPro = req.shopRecord.plan_name === 'Pro';
     const existingCount = (await getAllRules(req.shop)).length;
     if (!isPro && existingCount >= 3) {
+      console.log('[CostRules] Free plan limit hit for', req.shop, '- existing count:', existingCount);
       return res.status(403).json({ error: 'Free plan is limited to 3 cost rules. Upgrade to Pro for unlimited rules.', upgrade: true });
     }
     if (!isPro && req.body.applies_to === 'product_tag') {
