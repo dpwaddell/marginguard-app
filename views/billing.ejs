@@ -64,7 +64,7 @@
       const data = await res.json();
       if (cancelledParam) {
         const bar = document.getElementById('billing-status');
-        bar.innerHTML = '<div class="alert-bar" style="display:flex;align-items:center;justify-content:space-between">Your subscription has been cancelled. You\'re now on the Free plan.<button onclick="this.closest(\'.alert-bar\').remove()" style="background:none;border:none;cursor:pointer;font-size:16px;color:#6b7280;line-height:1;padding:0 0 0 12px">×</button></div>';
+        bar.innerHTML = '<div class="alert-bar" style="display:flex;align-items:center;justify-content:space-between">Your subscription has been cancelled. You\\'re now on the Free plan.<button onclick="this.closest(\\'.alert-bar\\').remove()" style="background:none;border:none;cursor:pointer;font-size:16px;color:#6b7280;line-height:1;padding:0 0 0 12px">×</button></div>';
       }
       if (data.plan === 'Pro') {
         document.getElementById('free-action').innerHTML = '';
