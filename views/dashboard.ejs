@@ -309,12 +309,15 @@
       '</div>';
     }).join('');
 
+    var cardTitle = data.completed ? "You're all set! 🎉" : 'Get started with MarginGuard';
+    var cardSubtitle = data.completed ? 'MarginGuard is fully configured and tracking your margins.' : 'Complete these steps to start tracking your margins';
+
     con.innerHTML =
       '<div class="card" style="margin-bottom:20px;border-left:4px solid #059669">' +
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">' +
           '<div>' +
-            '<div style="font-size:16px;font-weight:800;color:#111827;letter-spacing:-0.02em">Get started with MarginGuard</div>' +
-            '<div style="font-size:13px;color:#6b7280;margin-top:3px">Complete these steps to start tracking your margins</div>' +
+            '<div style="font-size:16px;font-weight:800;color:#111827;letter-spacing:-0.02em">' + cardTitle + '</div>' +
+            '<div style="font-size:13px;color:#6b7280;margin-top:3px">' + cardSubtitle + '</div>' +
           '</div>' +
           '<button onclick="dismissOnboarding()" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:13px;padding:4px 8px;border-radius:6px;font-weight:500;transition:opacity 0.15s" onmouseenter="this.style.opacity=\\'0.6\\'" onmouseleave="this.style.opacity=\\'1\\'">Dismiss</button>' +
         '</div>' +
@@ -326,10 +329,6 @@
         '</div>' +
         stepsHtml +
       '</div>';
-
-    if (data.completed) {
-      setTimeout(function() { con.style.display = 'none'; }, 1500);
-    }
   }
 
   async function dismissOnboarding() {
