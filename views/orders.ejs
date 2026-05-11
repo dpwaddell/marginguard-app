@@ -89,7 +89,9 @@
     }
   }
 
-  function fmt(n) { return '£' + (parseFloat(n) || 0).toFixed(2).replace(/\\B(?=(\\d{3})+(?!\\d))/g, ','); }
+  let currencySymbol = '£';
+  const CURRENCY_SYMBOLS = { GBP: '£', USD: '$', EUR: '€' };
+  function fmt(n) { return currencySymbol + (parseFloat(n) || 0).toFixed(2).replace(/\\B(?=(\\d{3})+(?!\\d))/g, ','); }
   function fmtPct(n) { return n == null ? '—' : parseFloat(n).toFixed(1) + '%'; }
 
   function renderOrders(data) {
@@ -106,6 +108,9 @@
     // Period summary stat cards
     const periodEl = document.getElementById('period-stats');
     const orders = data.orders || [];
+    if (orders.length && orders[0].currency) {
+      currencySymbol = CURRENCY_SYMBOLS[orders[0].currency] || orders[0].currency;
+    }
     if (orders.length) {
       const totalRev = orders.reduce((s, o) => s + (parseFloat(o.gross_revenue) || 0), 0);
       const totalProfit = orders.reduce((s, o) => s + (parseFloat(o.net_profit) || 0), 0);

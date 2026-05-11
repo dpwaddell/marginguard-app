@@ -49,9 +49,9 @@ router.get('/confirm', async (req, res) => {
 
     const result = await confirmSubscription(shop, rows[0].access_token, charge_id);
     if (result.success) {
-      res.redirect(`https://${shop}/admin/apps/${process.env.SHOPIFY_API_KEY}?billing=success`);
+      res.redirect(`${process.env.SHOPIFY_APP_URL}/app/billing?billing=success&shop=${shop}`);
     } else {
-      res.redirect(`https://${shop}/admin/apps/${process.env.SHOPIFY_API_KEY}?billing=declined`);
+      res.redirect(`${process.env.SHOPIFY_APP_URL}/app/billing?billing=declined&shop=${shop}`);
     }
   } catch (err) {
     console.error('[Billing] Callback error:', err.message);
@@ -61,10 +61,26 @@ router.get('/confirm', async (req, res) => {
 
 router.post('/cancel', requireSessionToken, async (req, res) => {
   try {
-    const { rows } = await query('SELECT access_token FROM shops WHERE shop=$1', [req.shop]);
-    if (!rows[0]?.access_token) return res.status(400).json({ error: 'Shop not found' });
+    let token = null;
 
-    await cancelSubscription(req.shop, rows[0].access_token);
+    const authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const idToken = authHeader.slice(7);
+      try {
+        token = await exchangeForOfflineToken(req.shop, idToken);
+        console.log('[Billing] Using fresh exchanged token for cancel');
+      } catch (exchErr) {
+        console.warn('[Billing] Token exchange failed, falling back to stored token:', exchErr.message);
+      }
+    }
+
+    if (!token) {
+      const { rows } = await query('SELECT access_token FROM shops WHERE shop=$1', [req.shop]);
+      if (!rows[0]?.access_token) return res.status(400).json({ error: 'Shop not found' });
+      token = rows[0].access_token;
+    }
+
+    await cancelSubscription(req.shop, token);
     res.json({ success: true });
   } catch (err) {
     console.error('[Billing] Cancel error:', err.message);

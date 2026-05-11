@@ -141,7 +141,9 @@
     }
   }
 
-  function fmt(n) { return '£' + (parseFloat(n) || 0).toFixed(2).replace(/\\B(?=(\\d{3})+(?!\\d))/g, ','); }
+  let currencySymbol = '£';
+  const CURRENCY_SYMBOLS = { GBP: '£', USD: '$', EUR: '€' };
+  function fmt(n) { return currencySymbol + (parseFloat(n) || 0).toFixed(2).replace(/\\B(?=(\\d{3})+(?!\\d))/g, ','); }
   function fmtPct(n) { return n == null ? '—' : parseFloat(n).toFixed(1) + '%'; }
 
   function renderTrend(curr, prev, elementId, lowerIsBetter) {
@@ -161,6 +163,7 @@
   }
 
   function renderDashboard(data) {
+    if (data.currency) currencySymbol = CURRENCY_SYMBOLS[data.currency] || data.currency;
     var s = data.summary || {};
     var p = data.prev_summary || {};
 

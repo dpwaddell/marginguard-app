@@ -25,7 +25,7 @@ router.get('/dashboard', auth, async (req, res) => {
     const shop = req.shop;
 
     const prevSince = new Date(Date.now() - 2 * days * 86400000).toISOString();
-    const [summary, prevSummary, lowMarginOrders, missingCogs, topOrders] = await Promise.all([
+    const [summary, prevSummary, lowMarginOrders, missingCogs, topOrders, currencyResult] = await Promise.all([
       query(
         `SELECT
            COUNT(*) as order_count,
@@ -61,6 +61,7 @@ router.get('/dashboard', auth, async (req, res) => {
          ORDER BY margin_percent ASC NULLS LAST LIMIT 5`,
         [shop, since]
       ),
+      query('SELECT currency FROM margin_settings WHERE shop=$1', [shop]),
     ]);
 
     res.json({
@@ -69,6 +70,7 @@ router.get('/dashboard', auth, async (req, res) => {
       low_margin_count: parseInt(lowMarginOrders.rows[0].count),
       missing_cogs_count: parseInt(missingCogs.rows[0].count),
       top_low_margin_orders: topOrders.rows,
+      currency: currencyResult.rows[0]?.currency || 'GBP',
     });
   } catch (err) {
     console.error('[API] /dashboard error:', err.message);

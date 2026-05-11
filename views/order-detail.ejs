@@ -65,12 +65,15 @@
     }
   }
 
-  function fmt(n) { return '£' + (parseFloat(n) || 0).toFixed(2); }
+  let currencySymbol = '£';
+  const CURRENCY_SYMBOLS = { GBP: '£', USD: '$', EUR: '€' };
+  function fmt(n) { return currencySymbol + (parseFloat(n) || 0).toFixed(2); }
   function fmtPct(n) { return n == null ? '—' : parseFloat(n).toFixed(1) + '%'; }
 
   function renderOrder(data) {
     const o = data.order;
     if (!o) return;
+    if (o.currency) currencySymbol = CURRENCY_SYMBOLS[o.currency] || o.currency;
 
     document.getElementById('order-title').textContent = o.order_name || 'Order #' + o.order_id;
     var subEl = document.getElementById('order-subtitle');

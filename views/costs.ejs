@@ -151,7 +151,7 @@
   }
 
   function editRule(id) {
-    const rule = rules.find(r => r.id === id);
+    const rule = rules.find(r => r.id == id);
     if (rule) showForm(rule);
   }
 
