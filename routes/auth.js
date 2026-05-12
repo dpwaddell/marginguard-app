@@ -75,16 +75,44 @@ router.get('/callback', async (req, res) => {
       console.warn(`[Auth] Got online token (shpua_) for ${shop} — app may be configured for per-user access in Partner Dashboard. Continuing anyway.`);
     }
 
+    const merchant = await fetchMerchantContact(shop, access_token);
+
     // Check if this is a new install or a reconnect
     const existing = await query(`SELECT shop FROM shops WHERE shop = $1`, [shop]);
     const isNewInstall = existing.rows.length === 0;
 
     // Store shop + token
     await query(
-      `INSERT INTO shops (shop, access_token, installed_at, updated_at)
-       VALUES ($1, $2, now(), now())
-       ON CONFLICT (shop) DO UPDATE SET access_token=$2, updated_at=now()`,
-      [shop, access_token]
+      `INSERT INTO shops (
+         shop,
+         access_token,
+         merchant_email,
+         merchant_contact_email,
+         shop_owner_name,
+         merchant_details_captured_at,
+         installed_at,
+         updated_at
+       )
+       VALUES (
+         $1, $2, $3, $4, $5,
+         CASE WHEN $3 IS NOT NULL OR $4 IS NOT NULL OR $5 IS NOT NULL THEN now() ELSE NULL END,
+         now(),
+         now()
+       )
+       ON CONFLICT (shop) DO UPDATE SET
+         access_token=$2,
+         merchant_email = COALESCE(EXCLUDED.merchant_email, shops.merchant_email),
+         merchant_contact_email = COALESCE(EXCLUDED.merchant_contact_email, shops.merchant_contact_email),
+         shop_owner_name = COALESCE(EXCLUDED.shop_owner_name, shops.shop_owner_name),
+         merchant_details_captured_at = COALESCE(EXCLUDED.merchant_details_captured_at, shops.merchant_details_captured_at),
+         updated_at=now()`,
+      [
+        shop,
+        access_token,
+        merchant.merchantEmail || null,
+        merchant.merchantContactEmail || null,
+        merchant.shopOwnerName || null
+      ]
     );
 
     if (isNewInstall) {
